@@ -47,7 +47,8 @@ export default function PortfolioApp() {
   const [newProject, setNewProject] = useState({ title: '', description: '', imageUrl: '', projectUrl: '', repoUrl: '', technologies: 'React, Node.js', featured: true, order: 0 });
   const [newEdu, setNewEdu] = useState({ title: '', institution: '', year: '', description: '', type: 'Education' as 'Education' | 'Certification', certificateUrl: '' });
 
-  const API_BASE = 'http://localhost:5000/api';
+  // Connected to Live Render Backend
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://portfolio-2uzz.onrender.com/api';
 
   // --- DATA FETCHING ---
   const fetchPortfolioData = async () => {
@@ -211,12 +212,14 @@ export default function PortfolioApp() {
           <a href="#education" className="hover:text-cyan-400 transition-colors">Education & Certs</a>
           <a href="#contact" className="hover:text-cyan-400 transition-colors">Contact</a>
         </div>
+        
+        {/* Hidden Admin Trigger Dot */}
         <button 
           onClick={() => { setIsAdminOpen(true); if(token) fetchMessages(token); }}
-          className="flex items-center gap-2 bg-slate-900 border border-slate-700 hover:border-cyan-500 text-xs px-3 py-1.5 rounded-full text-slate-300 hover:text-white transition-all shadow-sm"
-        >
-          <Lock size={14} className="text-cyan-400" /> Admin
-        </button>
+          title=""
+          className="w-2 h-2 rounded-full bg-slate-800/60 hover:bg-cyan-500/50 transition-all opacity-30 hover:opacity-100 focus:outline-none"
+          aria-label="."
+        />
       </nav>
 
       {/* --- LANDING / HERO SECTION (Dynamic 8s Rotation) --- */}
