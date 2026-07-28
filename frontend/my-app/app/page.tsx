@@ -3,10 +3,26 @@
 import React, { useState, useEffect } from 'react';
 import { 
   GraduationCap, Award, ExternalLink, Lock, LogOut, Plus, Trash2, X, 
-  ShieldAlert, Sun, Moon, Download, Mail, Send, Github, Linkedin, 
+  ShieldAlert, Sun, Moon, Download, Mail, Send, 
   LayoutGrid, User, Code, Briefcase, MessageSquare, Globe, ChevronRight, 
   ArrowLeft, CheckCircle2, AlertCircle
 } from 'lucide-react';
+
+// --- INLINE BRAND SVG ICONS (Lucide removed brand icons in recent versions) ---
+const GithubIcon = ({ size = 14, className = "" }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" />
+    <path d="M9 18c-4.51 2-5-2-7-2" />
+  </svg>
+);
+
+const LinkedinIcon = ({ size = 14, className = "" }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
+    <rect width="4" height="12" x="2" y="9" />
+    <circle cx="4" cy="4" r="2" />
+  </svg>
+);
 
 // --- TYPE DEFINITIONS ---
 interface HeroMedia { _id?: string; url: string; type: 'image' | 'video'; order: number; }
@@ -134,7 +150,7 @@ export default function PortfolioApp() {
     if (savedToken) setToken(savedToken);
   }, []);
 
-  // --- 8-SECOND HERO MEDIA ROTATION ---
+  // --- HERO MEDIA ROTATION ---
   useEffect(() => {
     if (profile.heroMedia && profile.heroMedia.length > 0) {
       const timer = setInterval(() => {
@@ -252,14 +268,14 @@ export default function PortfolioApp() {
     if (endpoint === 'messages') fetchMessages(token);
   };
 
-  // --- VIEW LIMITS FOR TWO ROWS ONLY (4 columns = 8 items max on desktop) ---
+  // --- VIEW LIMITS FOR TWO ROWS ONLY ---
   const displayedSkills = skills.slice(0, 8);
   const displayedProjects = projects.slice(0, 8);
 
   return (
     <div className={`min-h-screen font-sans transition-colors duration-300 selection:bg-cyan-500 selection:text-black relative overflow-x-hidden ${bgMain}`}>
       
-      {/* --- FLOATING WHATSAPP BUTTON (Redirects to Number 254746323229) --- */}
+      {/* FLOATING WHATSAPP BUTTON */}
       <a
         href={`https://wa.me/${profile.whatsappNumber || '254746323229'}?text=Hello%20${encodeURIComponent(profile.name || 'Michael')},%20I'm%20visiting%20your%20portfolio%20website%20and%20would%20like%20to%20get%20in%20touch!`}
         target="_blank"
@@ -275,7 +291,7 @@ export default function PortfolioApp() {
         </span>
       </a>
 
-      {/* --- NAVIGATION BAR --- */}
+      {/* NAVIGATION BAR */}
       <nav className={`fixed top-0 left-0 right-0 z-40 backdrop-blur-md border-b px-6 py-4 flex justify-between items-center transition-colors ${isDarkMode ? 'bg-slate-950/80 border-slate-800' : 'bg-white/80 border-slate-200'}`}>
         <a href="#" className="text-xl font-extrabold tracking-wider bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
           {profile.name.toUpperCase()}
@@ -289,7 +305,6 @@ export default function PortfolioApp() {
         </div>
         
         <div className="flex items-center gap-3">
-          {/* Light / Dark Mode Toggle Button */}
           <button 
             onClick={() => setIsDarkMode(!isDarkMode)} 
             className={`p-2 rounded-full border transition-all ${isDarkMode ? 'bg-slate-900 border-slate-700 text-yellow-400 hover:border-yellow-400' : 'bg-slate-100 border-slate-300 text-slate-700 hover:border-slate-500'}`}
@@ -298,7 +313,6 @@ export default function PortfolioApp() {
             {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
           </button>
 
-          {/* Admin Button */}
           <button 
             onClick={() => { setIsAdminOpen(true); if(token) fetchMessages(token); }}
             className={`flex items-center gap-2 border text-xs font-semibold px-3 py-1.5 rounded-full transition-all shadow-sm ${isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-300 hover:border-cyan-500 hover:text-white' : 'bg-slate-100 border-slate-300 text-slate-700 hover:border-cyan-500 hover:text-black'}`}
@@ -308,9 +322,8 @@ export default function PortfolioApp() {
         </div>
       </nav>
 
-      {/* --- PROFESSIONAL LANDING / HERO SECTION --- */}
+      {/* HERO SECTION */}
       <section id="about" className="relative min-h-screen w-full flex items-center justify-center px-6 pt-24 pb-16 overflow-hidden">
-        {/* Background Media Slider */}
         <div className="absolute inset-0 z-0 pointer-events-none">
           {profile.heroMedia && profile.heroMedia.length > 0 ? (
             profile.heroMedia.map((media, idx) => (
@@ -331,10 +344,7 @@ export default function PortfolioApp() {
           <div className={`absolute inset-0 bg-gradient-to-t ${isDarkMode ? 'from-slate-950 via-slate-950/60 to-transparent' : 'from-slate-50 via-slate-50/60 to-transparent'}`} />
         </div>
 
-        {/* Hero Content: Professional Side-by-Side on Desktop, Stacked on Mobile */}
         <div className="relative z-10 max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-          
-          {/* Left Text Column */}
           <div className="lg:col-span-7 space-y-6 text-center lg:text-left order-2 lg:order-1">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-400 text-xs font-bold uppercase tracking-widest animate-pulse">
               <span className="w-2 h-2 rounded-full bg-cyan-400" /> Welcome to My Portfolio
@@ -344,7 +354,6 @@ export default function PortfolioApp() {
               Hi, I&apos;m <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500 bg-clip-text text-transparent">{profile.name}</span>
             </h1>
 
-            {/* Typewriter Animation Container */}
             <div className="h-12 flex items-center justify-center lg:justify-start">
               <h2 className="text-lg sm:text-2xl md:text-3xl font-extrabold text-cyan-400 tracking-wide font-mono flex items-center">
                 <span>{displayedProfession}</span>
@@ -356,13 +365,11 @@ export default function PortfolioApp() {
               {profile.about}
             </p>
 
-            {/* Action Buttons */}
             <div className="pt-4 flex flex-wrap gap-4 justify-center lg:justify-start items-center">
               <a href="#projects" className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-semibold px-8 py-3.5 rounded-full shadow-lg shadow-cyan-500/25 transition-all transform hover:-translate-y-0.5">
                 View My Work
               </a>
               
-              {/* DOWNLOAD CV BUTTON (Links to root docs folder in GitHub) */}
               <a 
                 href={`https://raw.githubusercontent.com/${profile.githubUsername || 'michael'}/${profile.githubRepo || 'portfolio'}/main/docs/Michael.docx`}
                 download="Michael.docx"
@@ -380,10 +387,8 @@ export default function PortfolioApp() {
             </div>
           </div>
 
-          {/* Right Profile Picture Column */}
           <div className="lg:col-span-5 flex justify-center items-center order-1 lg:order-2">
             <div className="relative group">
-              {/* Decorative Glowing Backdrop */}
               <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-500 rounded-full blur-xl opacity-75 group-hover:opacity-100 transition duration-500 animate-pulse" />
               <div className={`relative w-64 h-64 sm:w-80 sm:h-80 md:w-96 md:h-96 rounded-full overflow-hidden border-4 ${isDarkMode ? 'border-slate-900 bg-slate-900' : 'border-white bg-white'} shadow-2xl flex items-center justify-center`}>
                 <img 
@@ -394,31 +399,16 @@ export default function PortfolioApp() {
               </div>
             </div>
           </div>
-
         </div>
-
-        {/* Slide Indicator Dots */}
-        {profile.heroMedia && profile.heroMedia.length > 0 && (
-          <div className="absolute bottom-6 z-10 flex gap-2">
-            {profile.heroMedia.map((_, idx) => (
-              <button 
-                key={idx} 
-                onClick={() => setActiveMediaIndex(idx)}
-                className={`h-1.5 rounded-full transition-all duration-300 ${idx === activeMediaIndex ? 'w-8 bg-cyan-400' : 'w-2 bg-slate-600'}`} 
-              />
-            ))}
-          </div>
-        )}
       </section>
 
-      {/* --- SKILLS SECTION (2 Rows Max Initially, 4 columns on Laptops, 2 on Phones) --- */}
+      {/* SKILLS SECTION */}
       <section id="skills" className={`py-24 px-6 max-w-7xl mx-auto border-t ${borderCol}`}>
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-5xl font-bold tracking-tight">Technical <span className="text-cyan-400">Skills</span></h2>
           <p className={`${textMuted} mt-3`}>Click on any card to view detailed proficiency and expertise.</p>
         </div>
 
-        {/* 4 Columns Laptops/Computers (lg:grid-cols-4), 2 Columns Phones (grid-cols-2) */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {displayedSkills.map((skill) => (
             <div 
@@ -438,7 +428,6 @@ export default function PortfolioApp() {
           ))}
         </div>
 
-        {/* View All Skills Button if items exceed 2 rows (8 items) */}
         {skills.length > 8 && (
           <div className="mt-12 text-center">
             <button
@@ -451,7 +440,7 @@ export default function PortfolioApp() {
         )}
       </section>
 
-      {/* --- SKILL DETAIL MODAL --- */}
+      {/* SKILL DETAIL MODAL */}
       {selectedSkill && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
           <div className={`border rounded-2xl max-w-md w-full p-6 relative shadow-2xl ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-300'}`}>
@@ -472,7 +461,7 @@ export default function PortfolioApp() {
         </div>
       )}
 
-      {/* --- PROJECTS SECTION (2 Rows Max Initially, 4 columns Laptops, 2 Phones) --- */}
+      {/* PROJECTS SECTION */}
       <section id="projects" className={`py-24 px-6 border-y ${borderCol} ${isDarkMode ? 'bg-slate-900/30' : 'bg-slate-100/50'}`}>
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
@@ -480,7 +469,6 @@ export default function PortfolioApp() {
             <p className={`${textMuted} mt-3`}>Explore my latest applications, architectures, and deployments.</p>
           </div>
 
-          {/* 4 Columns Laptops/Computers (lg:grid-cols-4), 2 Columns Phones (grid-cols-2) */}
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {displayedProjects.map((project) => (
               <div 
@@ -513,11 +501,10 @@ export default function PortfolioApp() {
                   </div>
                 </div>
 
-                {/* Footer with multiple URL links if available */}
                 <div className={`px-5 py-3 border-t flex justify-between items-center text-xs font-semibold ${borderCol} ${isDarkMode ? 'bg-slate-950/50 text-slate-400' : 'bg-slate-50 text-slate-600'}`} onClick={(e) => e.stopPropagation()}>
                   {project.repoUrl ? (
                     <a href={project.repoUrl} target="_blank" rel="noreferrer" className="hover:text-cyan-400 flex items-center gap-1">
-                      <Github size={14} /> Code
+                      <GithubIcon size={14} /> Code
                     </a>
                   ) : <span />}
                   
@@ -538,7 +525,6 @@ export default function PortfolioApp() {
             ))}
           </div>
 
-          {/* View More Projects Button -> Opens Full Gallery Page/Modal */}
           {projects.length > 8 && (
             <div className="mt-12 text-center">
               <button
@@ -552,7 +538,7 @@ export default function PortfolioApp() {
         </div>
       </section>
 
-      {/* --- FULL-SCREEN ALL PROJECTS MODAL ("opens a page displaying all of them") --- */}
+      {/* FULL-SCREEN ALL PROJECTS MODAL */}
       {showAllProjectsModal && (
         <div className={`fixed inset-0 z-50 overflow-y-auto p-6 transition-colors ${bgMain}`}>
           <div className="max-w-7xl mx-auto py-12">
@@ -574,7 +560,6 @@ export default function PortfolioApp() {
               </button>
             </div>
 
-            {/* Same 4-column desktop / 2-column mobile grid displaying ALL items */}
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {projects.map((project) => (
                 <div 
@@ -602,7 +587,7 @@ export default function PortfolioApp() {
                     </div>
                   </div>
                   <div className={`px-5 py-3 border-t flex justify-between items-center text-xs font-semibold ${borderCol} ${isDarkMode ? 'bg-slate-950/50 text-slate-400' : 'bg-slate-50 text-slate-600'}`} onClick={(e) => e.stopPropagation()}>
-                    {project.repoUrl ? <a href={project.repoUrl} target="_blank" rel="noreferrer" className="hover:text-cyan-400 flex items-center gap-1"><Github size={14} /> Code</a> : <span />}
+                    {project.repoUrl ? <a href={project.repoUrl} target="_blank" rel="noreferrer" className="hover:text-cyan-400 flex items-center gap-1"><GithubIcon size={14} /> Code</a> : <span />}
                     <div className="flex items-center gap-3">
                       {project.demoUrl && <a href={project.demoUrl} target="_blank" rel="noreferrer" className="hover:text-cyan-400 flex items-center gap-1"><Globe size={14} /> Demo</a>}
                       {project.docsUrl && <a href={project.docsUrl} target="_blank" rel="noreferrer" className="hover:text-cyan-400 flex items-center gap-1"><Code size={14} /> Docs</a>}
@@ -615,7 +600,7 @@ export default function PortfolioApp() {
         </div>
       )}
 
-      {/* --- FULL-SCREEN ALL SKILLS MODAL --- */}
+      {/* FULL-SCREEN ALL SKILLS MODAL */}
       {showAllSkillsModal && (
         <div className={`fixed inset-0 z-50 overflow-y-auto p-6 transition-colors ${bgMain}`}>
           <div className="max-w-7xl mx-auto py-12">
@@ -646,7 +631,7 @@ export default function PortfolioApp() {
         </div>
       )}
 
-      {/* --- EDUCATION & CERTIFICATIONS SECTION --- */}
+      {/* EDUCATION & CERTIFICATIONS SECTION */}
       <section id="education" className="py-24 px-6 max-w-6xl mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-5xl font-bold tracking-tight">Education & <span className="text-cyan-400">Certifications</span></h2>
@@ -654,7 +639,6 @@ export default function PortfolioApp() {
         </div>
 
         <div className="grid md:grid-cols-2 gap-12">
-          {/* Education Column */}
           <div className={`p-8 rounded-2xl border ${bgCard}`}>
             <h3 className={`text-xl font-bold mb-6 flex items-center gap-2 border-b pb-3 ${borderCol} ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
               <GraduationCap className="text-cyan-400" /> Academic Background
@@ -672,7 +656,6 @@ export default function PortfolioApp() {
             </div>
           </div>
 
-          {/* Certifications Column */}
           <div className={`p-8 rounded-2xl border ${bgCard}`}>
             <h3 className={`text-xl font-bold mb-6 flex items-center gap-2 border-b pb-3 ${borderCol} ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
               <Award className="text-cyan-400" /> Accreditations & Certs
@@ -696,7 +679,7 @@ export default function PortfolioApp() {
         </div>
       </section>
 
-      {/* --- ALL-DEVICE COMPATIBLE CONTACT FORM SECTION --- */}
+      {/* CONTACT FORM SECTION */}
       <section id="contact" className={`py-24 px-6 border-t ${borderCol} ${isDarkMode ? 'bg-slate-900/40' : 'bg-slate-100/60'}`}>
         <div className="max-w-2xl mx-auto">
           <div className="text-center mb-12">
@@ -762,20 +745,16 @@ export default function PortfolioApp() {
         </div>
       </section>
 
-      {/* --- FOOTER --- */}
+      {/* FOOTER */}
       <footer className={`py-8 text-center text-xs border-t ${borderCol} ${textMuted}`}>
         © {new Date().getFullYear()} {profile.name}. Built with Next.js, TypeScript & Tailwind CSS. All rights reserved.
       </footer>
 
-
-      {/* =========================================================
-          TWO-PANEL PROFESSIONAL ADMIN DASHBOARD MODAL
-      ========================================================= */}
+      {/* TWO-PANEL ADMIN DASHBOARD MODAL */}
       {isAdminOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-2 sm:p-4 overflow-hidden animate-in fade-in duration-200">
           <div className="bg-slate-950 border border-slate-800 rounded-2xl w-full max-w-6xl h-[92vh] flex flex-col shadow-2xl overflow-hidden relative">
             
-            {/* Top Modal Header */}
             <div className="px-6 py-4 bg-slate-900 border-b border-slate-800 flex justify-between items-center shrink-0">
               <div className="flex items-center gap-2 font-bold text-base sm:text-lg text-white">
                 <ShieldAlert className="text-cyan-400" /> Portfolio Control Center
@@ -792,9 +771,7 @@ export default function PortfolioApp() {
               </div>
             </div>
 
-            {/* Modal Content Body */}
             {!token ? (
-              /* --- LOGIN VIEW --- */
               <div className="flex-1 flex items-center justify-center p-6 overflow-y-auto">
                 <div className="max-w-sm w-full bg-slate-900 p-8 rounded-2xl border border-slate-800 shadow-xl space-y-6">
                   <div className="text-center">
@@ -830,10 +807,7 @@ export default function PortfolioApp() {
                 </div>
               </div>
             ) : (
-              /* --- TWO-PANEL WORKSPACE (Left Sidebar + Right Editor Area) --- */
               <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
-                
-                {/* PANEL 1: LEFT SIDEBAR NAVIGATION */}
                 <div className="w-full md:w-64 bg-slate-900/90 border-b md:border-b-0 md:border-r border-slate-800 p-3 shrink-0 flex md:flex-col gap-1 overflow-x-auto">
                   <div className="hidden md:block text-[10px] font-bold text-slate-500 uppercase px-3 py-2 tracking-wider">Navigation Menu</div>
                   
@@ -857,10 +831,7 @@ export default function PortfolioApp() {
                   })}
                 </div>
 
-                {/* PANEL 2: RIGHT MAIN CONTENT AREA (Form Editors) */}
                 <div className="flex-1 overflow-y-auto p-6 bg-slate-950">
-                  
-                  {/* TAB 1: PROFILE, PICTURE, & URL SETTINGS */}
                   {adminTab === 'profile' && (
                     <div className="space-y-6 max-w-3xl">
                       <div className="border-b border-slate-800 pb-3">
@@ -874,8 +845,8 @@ export default function PortfolioApp() {
                           <input type="text" value={editProfile.name} onChange={(e) => setEditProfile({...editProfile, name: e.target.value})} className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" />
                         </div>
                         <div>
-                          <label className="text-xs text-slate-400 font-semibold">Profession Titles (Comma separated for Typewriter)</label>
-                          <input type="text" value={editProfile.profession} onChange={(e) => setEditProfile({...editProfile, profession: e.target.value})} className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" placeholder="Full-Stack Developer, UI/UX Designer" />
+                          <label className="text-xs text-slate-400 font-semibold">Profession Titles (Comma separated)</label>
+                          <input type="text" value={editProfile.profession} onChange={(e) => setEditProfile({...editProfile, profession: e.target.value})} className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" />
                         </div>
                       </div>
 
@@ -886,54 +857,20 @@ export default function PortfolioApp() {
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-800">
                         <div>
-                          <label className="text-xs text-slate-400 font-semibold">Profile Picture URL (Landing Page Avatar)</label>
-                          <input type="text" value={editProfile.profilePicUrl || ''} onChange={(e) => setEditProfile({...editProfile, profilePicUrl: e.target.value})} className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" placeholder="https://..." />
+                          <label className="text-xs text-slate-400 font-semibold">Profile Picture URL</label>
+                          <input type="text" value={editProfile.profilePicUrl || ''} onChange={(e) => setEditProfile({...editProfile, profilePicUrl: e.target.value})} className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" />
                         </div>
                         <div>
-                          <label className="text-xs text-slate-400 font-semibold">WhatsApp Phone Number (e.g. 254746323229)</label>
-                          <input type="text" value={editProfile.whatsappNumber || ''} onChange={(e) => setEditProfile({...editProfile, whatsappNumber: e.target.value})} className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" placeholder="254746323229" />
+                          <label className="text-xs text-slate-400 font-semibold">WhatsApp Phone Number</label>
+                          <input type="text" value={editProfile.whatsappNumber || ''} onChange={(e) => setEditProfile({...editProfile, whatsappNumber: e.target.value})} className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" />
                         </div>
                         <div>
-                          <label className="text-xs text-slate-400 font-semibold">GitHub Username (For CV Download Path)</label>
-                          <input type="text" value={editProfile.githubUsername || ''} onChange={(e) => setEditProfile({...editProfile, githubUsername: e.target.value})} className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" placeholder="michael" />
+                          <label className="text-xs text-slate-400 font-semibold">GitHub Username</label>
+                          <input type="text" value={editProfile.githubUsername || ''} onChange={(e) => setEditProfile({...editProfile, githubUsername: e.target.value})} className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" />
                         </div>
                         <div>
-                          <label className="text-xs text-slate-400 font-semibold">GitHub Repo Name (Containing /docs/Michael.docx)</label>
-                          <input type="text" value={editProfile.githubRepo || ''} onChange={(e) => setEditProfile({...editProfile, githubRepo: e.target.value})} className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" placeholder="portfolio" />
-                        </div>
-                      </div>
-
-                      <div className="pt-4 border-t border-slate-800">
-                        <h4 className="text-sm font-bold text-cyan-400 uppercase tracking-wider mb-3">Hero Media Slider (8-Sec Rotation Control)</h4>
-                        <div className="space-y-3">
-                          {editProfile.heroMedia?.map((media, idx) => (
-                            <div key={idx} className="flex gap-2 items-center bg-slate-900 p-3 rounded-lg border border-slate-800">
-                              <span className="text-xs font-bold text-slate-500 w-6">#{idx+1}</span>
-                              <select 
-                                value={media.type} 
-                                onChange={(e) => {
-                                  const newMedia = [...(editProfile.heroMedia || [])];
-                                  newMedia[idx] = { ...newMedia[idx], type: e.target.value as 'image' | 'video' };
-                                  setEditProfile({...editProfile, heroMedia: newMedia});
-                                }}
-                                className="bg-slate-950 border border-slate-700 text-xs rounded p-2 text-white"
-                              >
-                                <option value="image">Image</option>
-                                <option value="video">Video</option>
-                              </select>
-                              <input 
-                                type="text" 
-                                value={media.url} 
-                                onChange={(e) => {
-                                  const newMedia = [...(editProfile.heroMedia || [])];
-                                  newMedia[idx] = { ...newMedia[idx], url: e.target.value };
-                                  setEditProfile({...editProfile, heroMedia: newMedia});
-                                }}
-                                placeholder="Media URL..." 
-                                className="flex-1 bg-slate-950 border border-slate-700 text-xs rounded p-2 text-white" 
-                              />
-                            </div>
-                          ))}
+                          <label className="text-xs text-slate-400 font-semibold">GitHub Repo Name</label>
+                          <input type="text" value={editProfile.githubRepo || ''} onChange={(e) => setEditProfile({...editProfile, githubRepo: e.target.value})} className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" />
                         </div>
                       </div>
 
@@ -943,17 +880,16 @@ export default function PortfolioApp() {
                     </div>
                   )}
 
-                  {/* TAB 2: SKILLS MANAGER */}
                   {adminTab === 'skills' && (
                     <div className="space-y-8 max-w-4xl">
                       <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 space-y-4 shadow-xl">
                         <h4 className="text-sm font-bold text-cyan-400 uppercase tracking-wider">Add New Skill Card</h4>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          <input type="text" placeholder="Skill Title (e.g. React)" value={newSkill.title} onChange={(e)=>setNewSkill({...newSkill, title: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
-                          <input type="text" placeholder="Category (e.g. Web Dev)" value={newSkill.category} onChange={(e)=>setNewSkill({...newSkill, category: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                          <input type="text" placeholder="Skill Title" value={newSkill.title} onChange={(e)=>setNewSkill({...newSkill, title: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                          <input type="text" placeholder="Category" value={newSkill.category} onChange={(e)=>setNewSkill({...newSkill, category: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
                           <input type="text" placeholder="Image Icon URL" value={newSkill.imageUrl} onChange={(e)=>setNewSkill({...newSkill, imageUrl: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
                         </div>
-                        <textarea placeholder="Detailed description for the popup modal view..." value={newSkill.description} onChange={(e)=>setNewSkill({...newSkill, description: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white resize-none" rows={2} />
+                        <textarea placeholder="Detailed description..." value={newSkill.description} onChange={(e)=>setNewSkill({...newSkill, description: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white resize-none" rows={2} />
                         <button onClick={addSkill} className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold px-6 py-2.5 rounded-lg text-xs flex items-center gap-1.5 transition-colors">
                           <Plus size={16} /> Add Skill to Grid
                         </button>
@@ -978,7 +914,6 @@ export default function PortfolioApp() {
                     </div>
                   )}
 
-                  {/* TAB 3: PROJECTS MANAGER (With Multiple URL Inputs) */}
                   {adminTab === 'projects' && (
                     <div className="space-y-8 max-w-4xl">
                       <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 space-y-4 shadow-xl">
@@ -986,12 +921,12 @@ export default function PortfolioApp() {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <input type="text" placeholder="Project Title" value={newProject.title} onChange={(e)=>setNewProject({...newProject, title: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
                           <input type="text" placeholder="Image URL" value={newProject.imageUrl} onChange={(e)=>setNewProject({...newProject, imageUrl: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
-                          <input type="text" placeholder="Live Project URL (Redirect Link)" value={newProject.projectUrl} onChange={(e)=>setNewProject({...newProject, projectUrl: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
-                          <input type="text" placeholder="GitHub Repo URL (Code Link)" value={newProject.repoUrl} onChange={(e)=>setNewProject({...newProject, repoUrl: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
-                          <input type="text" placeholder="Live Demo URL (Optional)" value={newProject.demoUrl} onChange={(e)=>setNewProject({...newProject, demoUrl: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
-                          <input type="text" placeholder="Documentation URL (Optional)" value={newProject.docsUrl} onChange={(e)=>setNewProject({...newProject, docsUrl: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                          <input type="text" placeholder="Live Project URL" value={newProject.projectUrl} onChange={(e)=>setNewProject({...newProject, projectUrl: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                          <input type="text" placeholder="GitHub Repo URL" value={newProject.repoUrl} onChange={(e)=>setNewProject({...newProject, repoUrl: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                          <input type="text" placeholder="Live Demo URL" value={newProject.demoUrl} onChange={(e)=>setNewProject({...newProject, demoUrl: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                          <input type="text" placeholder="Documentation URL" value={newProject.docsUrl} onChange={(e)=>setNewProject({...newProject, docsUrl: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
                         </div>
-                        <input type="text" placeholder="Technologies (Comma separated e.g. React, Node.js, Next.js)" value={newProject.technologies} onChange={(e)=>setNewProject({...newProject, technologies: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                        <input type="text" placeholder="Technologies (Comma separated)" value={newProject.technologies} onChange={(e)=>setNewProject({...newProject, technologies: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
                         <textarea placeholder="Detailed Project Description..." value={newProject.description} onChange={(e)=>setNewProject({...newProject, description: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white resize-none" rows={2} />
                         <button 
                           onClick={async () => {
@@ -1019,7 +954,6 @@ export default function PortfolioApp() {
                               <div className="flex gap-4 text-[11px] mt-1 text-cyan-400">
                                 {p.projectUrl && <a href={p.projectUrl} target="_blank" rel="noreferrer" className="hover:underline">Live URL</a>}
                                 {p.repoUrl && <a href={p.repoUrl} target="_blank" rel="noreferrer" className="hover:underline">Repo URL</a>}
-                                {p.demoUrl && <a href={p.demoUrl} target="_blank" rel="noreferrer" className="hover:underline">Demo URL</a>}
                               </div>
                             </div>
                             <button onClick={() => deleteItem('projects', p._id)} className="text-slate-500 hover:text-red-400 p-2 rounded-lg hover:bg-slate-800">
@@ -1031,7 +965,6 @@ export default function PortfolioApp() {
                     </div>
                   )}
 
-                  {/* TAB 4: EDUCATION & CERTS MANAGER */}
                   {adminTab === 'education' && (
                     <div className="space-y-8 max-w-4xl">
                       <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 space-y-4 shadow-xl">
@@ -1041,11 +974,11 @@ export default function PortfolioApp() {
                             <option value="Education">Education</option>
                             <option value="Certification">Certification</option>
                           </select>
-                          <input type="text" placeholder="Title (Degree or Cert Name)" value={newEdu.title} onChange={(e)=>setNewEdu({...newEdu, title: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
-                          <input type="text" placeholder="Institution / Issuer" value={newEdu.institution} onChange={(e)=>setNewEdu({...newEdu, institution: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
-                          <input type="text" placeholder="Year (e.g. 2020 - 2024)" value={newEdu.year} onChange={(e)=>setNewEdu({...newEdu, year: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                          <input type="text" placeholder="Title" value={newEdu.title} onChange={(e)=>setNewEdu({...newEdu, title: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                          <input type="text" placeholder="Institution" value={newEdu.institution} onChange={(e)=>setNewEdu({...newEdu, institution: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                          <input type="text" placeholder="Year" value={newEdu.year} onChange={(e)=>setNewEdu({...newEdu, year: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
                         </div>
-                        <input type="text" placeholder="Certificate Verification URL (Optional)" value={newEdu.certificateUrl} onChange={(e)=>setNewEdu({...newEdu, certificateUrl: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                        <input type="text" placeholder="Certificate Verification URL" value={newEdu.certificateUrl} onChange={(e)=>setNewEdu({...newEdu, certificateUrl: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
                         <button 
                           onClick={async () => {
                             if (!token) return;
@@ -1080,7 +1013,6 @@ export default function PortfolioApp() {
                     </div>
                   )}
 
-                  {/* TAB 5: MESSAGES INBOX */}
                   {adminTab === 'messages' && (
                     <div className="space-y-4 max-w-4xl">
                       {(!messages || messages.length === 0) ? (
@@ -1108,18 +1040,15 @@ export default function PortfolioApp() {
                       )}
                     </div>
                   )}
-
                 </div>
               </div>
             )}
 
-            {/* Modal Bottom Bar */}
             <div className="px-6 py-3 bg-slate-900 border-t border-slate-800 text-right shrink-0">
               <button onClick={() => setIsAdminOpen(false)} className="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold transition-colors">
                 Close Control Panel
               </button>
             </div>
-
           </div>
         </div>
       )}
