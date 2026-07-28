@@ -169,53 +169,60 @@ export default function PortfolioApp() {
   const inputBg = isDarkMode ? 'bg-slate-950 border-slate-800 text-white focus:border-cyan-500' : 'bg-slate-100 border-slate-300 text-slate-900 focus:border-cyan-500';
 
   // --- DATA FETCHING ---
-  const fetchPortfolioData = async () => {
-    try {
-      const res = await fetch(`${API_BASE}/portfolio`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.profile && data.profile.name) {
-          setProfile(data.profile);
-          setEditProfile(data.profile);
-        }
-        if (Array.isArray(data.skills) && data.skills.length > 0) setSkills(data.skills);
-        if (Array.isArray(data.projects) && data.projects.length > 0) setProjects(data.projects);
-        if (Array.isArray(data.education) && data.education.length > 0) setEducation(data.education);
-        if (Array.isArray(data.certifications) && data.certifications.length > 0) setCertifications(data.certifications);
+const fetchPortfolioData = async () => {
+  try {
+    const res = await fetch(`${API_BASE}/portfolio`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data.profile && data.profile.name) {
+        // Normalize profile data to handle schema property variations (e.g., profilePic vs profilePicUrl)
+        const normalizedProfile = {
+          ...data.profile,
+          profilePicUrl: data.profile.profilePicUrl || data.profile.profilePic || '',
+          heroMedia: data.profile.heroMedia || []
+        };
+        setProfile(normalizedProfile);
+        setEditProfile(normalizedProfile);
       }
-    } catch (err) {
-      console.log("Using robust default frontend state; backend API not currently connected.");
+      if (Array.isArray(data.skills) && data.skills.length > 0) setSkills(data.skills);
+      if (Array.isArray(data.projects) && data.projects.length > 0) setProjects(data.projects);
+      if (Array.isArray(data.education) && data.education.length > 0) setEducation(data.education);
+      if (Array.isArray(data.certifications) && data.certifications.length > 0) setCertifications(data.certifications);
     }
-  };
+  } catch (err) {
+    console.log("Using robust default frontend state; backend API not currently connected.");
+  }
+};
 
-  const fetchMessages = async (authToken: string) => {
-    try {
-      const res = await fetch(`${API_BASE}/admin/messages`, {
-        headers: { 'Authorization': `Bearer ${authToken}` }
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setMessages(Array.isArray(data) ? data : []);
-      }
-    } catch (err) { console.error(err); }
-  };
+const fetchMessages = async (authToken: string) => {
+  try {
+    const res = await fetch(`${API_BASE}/admin/messages`, {
+      headers: { 'Authorization': `Bearer ${authToken}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setMessages(Array.isArray(data) ? data : []);
+    }
+  } catch (err) { console.error(err); }
+};
 
-  useEffect(() => {
-    fetchPortfolioData();
-    const savedToken = localStorage.getItem('admin_token');
-    if (savedToken) setToken(savedToken);
-  }, []);
-
+useEffect(() => {
+  fetchPortfolioData();
+  const savedToken = localStorage.getItem('admin_token');
+  if (savedToken) {
+    setToken(savedToken);
+    fetchMessages(savedToken); // Fixed: Automatically fetch messages using the retrieved token
+  }
+}, []);
   // --- HERO MEDIA ROTATION ---
-  useEffect(() => {
-    if (profile.heroMedia && profile.heroMedia.length > 0) {
-      const timer = setInterval(() => {
-        setActiveMediaIndex((prev) => (prev + 1) % profile.heroMedia.length);
-      }, 8000);
-      return () => clearInterval(timer);
-    }
-  }, [profile.heroMedia]);
-
+ useEffect(() => {
+  if (profile.heroMedia && profile.heroMedia.length > 0) {
+    const timer = setInterval(() => {
+      setActiveMediaIndex((prev) => (prev + 1) % profile.heroMedia.length);
+    }, 8000);
+    return () => clearInterval(timer);
+  }
+}, [profile.heroMedia?.length]);
   // --- TYPEWRITER EFFECT HOOK ---
   useEffect(() => {
     const titles = profile.profession ? profile.profession.split(',').map(p => p.trim()) : ['Full-Stack Developer'];
