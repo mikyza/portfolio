@@ -2,26 +2,57 @@
 
 import React, { useState, useEffect } from 'react';
 import { 
-  GraduationCap, Award, ExternalLink, 
-  Lock, LogOut, Plus, Trash2, X, ShieldAlert 
+  GraduationCap, Award, ExternalLink, Lock, LogOut, Plus, Trash2, X, 
+  ShieldAlert, Sun, Moon, Download, Mail, Send, Github, Linkedin, 
+  LayoutGrid, User, Code, Briefcase, MessageSquare, Globe, ChevronRight, 
+  ArrowLeft, CheckCircle2, AlertCircle
 } from 'lucide-react';
 
 // --- TYPE DEFINITIONS ---
 interface HeroMedia { _id?: string; url: string; type: 'image' | 'video'; order: number; }
-interface Profile { name: string; profession: string; about: string; heroMedia: HeroMedia[]; }
+interface Profile { 
+  name: string; 
+  profession: string; 
+  about: string; 
+  profilePicUrl: string;
+  whatsappNumber: string;
+  githubUsername: string;
+  githubRepo: string;
+  linkedinUrl?: string;
+  twitterUrl?: string;
+  heroMedia: HeroMedia[]; 
+}
 interface Skill { _id: string; title: string; category: string; imageUrl: string; description: string; level: string; order: number; }
-interface Project { _id: string; title: string; description: string; imageUrl: string; projectUrl: string; repoUrl?: string; technologies: string[]; featured: boolean; order: number; }
+interface Project { 
+  _id: string; 
+  title: string; 
+  description: string; 
+  imageUrl: string; 
+  projectUrl: string; 
+  repoUrl?: string; 
+  demoUrl?: string;
+  docsUrl?: string;
+  technologies: string[]; 
+  featured: boolean; 
+  order: number; 
+}
 interface Education { _id: string; title: string; institution: string; year: string; description?: string; type: 'Education' | 'Certification'; certificateUrl?: string; }
 interface Message { _id: string; senderName: string; email: string; subject: string; message: string; createdAt: string; }
 
 export default function PortfolioApp() {
   // --- STATE MANAGEMENT ---
+  const [isDarkMode, setIsDarkMode] = useState(true);
   const [profile, setProfile] = useState<Profile>({
-    name: 'Loading...',
-    profession: 'Loading...',
-    about: '',
+    name: 'Michael',
+    profession: 'Full-Stack Software Developer, UI/UX Designer, Database Architect',
+    about: 'Passionate software engineer building responsive, high-performance web applications and seamless digital experiences.',
+    profilePicUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80',
+    whatsappNumber: '254746323229',
+    githubUsername: 'michael',
+    githubRepo: 'portfolio',
     heroMedia: []
   });
+  
   const [skills, setSkills] = useState<Skill[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [education, setEducation] = useState<Education[]>([]);
@@ -30,8 +61,16 @@ export default function PortfolioApp() {
   // UI & Interaction States
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
+  const [showAllProjectsModal, setShowAllProjectsModal] = useState(false);
+  const [showAllSkillsModal, setShowAllSkillsModal] = useState(false);
   const [contactForm, setContactForm] = useState({ senderName: '', email: '', subject: '', message: '' });
   const [contactStatus, setContactStatus] = useState({ type: '', msg: '' });
+
+  // Typewriter Animation States
+  const [displayedProfession, setDisplayedProfession] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [loopNum, setLoopNum] = useState(0);
+  const [typingSpeed, setTypingSpeed] = useState(120);
 
   // Admin Panel States
   const [isAdminOpen, setIsAdminOpen] = useState(false);
@@ -44,11 +83,18 @@ export default function PortfolioApp() {
   // Admin Form Editors
   const [editProfile, setEditProfile] = useState<Profile>(profile);
   const [newSkill, setNewSkill] = useState({ title: '', category: 'Web Development', imageUrl: '', description: '', level: 'Advanced', order: 0 });
-  const [newProject, setNewProject] = useState({ title: '', description: '', imageUrl: '', projectUrl: '', repoUrl: '', technologies: 'React, Node.js', featured: true, order: 0 });
+  const [newProject, setNewProject] = useState({ title: '', description: '', imageUrl: '', projectUrl: '', repoUrl: '', demoUrl: '', docsUrl: '', technologies: 'React, Node.js, Next.js', featured: true, order: 0 });
   const [newEdu, setNewEdu] = useState({ title: '', institution: '', year: '', description: '', type: 'Education' as 'Education' | 'Certification', certificateUrl: '' });
 
-  // Connected to Live Render Backend
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://portfolio-2uzz.onrender.com/api';
+  const API_BASE = 'http://localhost:5000/api';
+
+  // --- THEME COLOR CLASSES ---
+  const bgMain = isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900';
+  const bgCard = isDarkMode ? 'bg-slate-900/80 border-slate-800' : 'bg-white border-slate-200 shadow-sm';
+  const bgCardHover = isDarkMode ? 'hover:border-cyan-500/50 hover:shadow-[0_0_25px_rgba(6,182,212,0.15)]' : 'hover:border-cyan-500 hover:shadow-lg';
+  const textMuted = isDarkMode ? 'text-slate-400' : 'text-slate-600';
+  const borderCol = isDarkMode ? 'border-slate-800' : 'border-slate-200';
+  const inputBg = isDarkMode ? 'bg-slate-950 border-slate-800 text-white focus:border-cyan-500' : 'bg-slate-100 border-slate-300 text-slate-900 focus:border-cyan-500';
 
   // --- DATA FETCHING ---
   const fetchPortfolioData = async () => {
@@ -66,7 +112,7 @@ export default function PortfolioApp() {
         setCertifications(Array.isArray(data.certifications) ? data.certifications : []);
       }
     } catch (err) {
-      console.error("Failed to connect to backend server:", err);
+      console.error("Using fallback state; could not connect to backend server:", err);
     }
   };
 
@@ -88,15 +134,41 @@ export default function PortfolioApp() {
     if (savedToken) setToken(savedToken);
   }, []);
 
-  // --- 8-SECOND MEDIA ROTATION TIMER ---
+  // --- 8-SECOND HERO MEDIA ROTATION ---
   useEffect(() => {
     if (profile.heroMedia && profile.heroMedia.length > 0) {
       const timer = setInterval(() => {
         setActiveMediaIndex((prev) => (prev + 1) % profile.heroMedia.length);
-      }, 8000); // 8 seconds per slide
+      }, 8000);
       return () => clearInterval(timer);
     }
   }, [profile.heroMedia]);
+
+  // --- TYPEWRITER EFFECT HOOK ---
+  useEffect(() => {
+    const titles = profile.profession ? profile.profession.split(',').map(p => p.trim()) : ['Full-Stack Developer'];
+    const currentTitleIndex = loopNum % titles.length;
+    const fullText = titles[currentTitleIndex];
+
+    const handleTyping = () => {
+      setDisplayedProfession(isDeleting 
+        ? fullText.substring(0, displayedProfession.length - 1)
+        : fullText.substring(0, displayedProfession.length + 1)
+      );
+
+      setTypingSpeed(isDeleting ? 40 : 100);
+
+      if (!isDeleting && displayedProfession === fullText) {
+        setTimeout(() => setIsDeleting(true), 2000);
+      } else if (isDeleting && displayedProfession === '') {
+        setIsDeleting(false);
+        setLoopNum(loopNum + 1);
+      }
+    };
+
+    const timer = setTimeout(handleTyping, typingSpeed);
+    return () => clearTimeout(timer);
+  }, [displayedProfession, isDeleting, loopNum, typingSpeed, profile.profession]);
 
   // --- HANDLERS ---
   const handleContactSubmit = async (e: React.FormEvent) => {
@@ -109,10 +181,10 @@ export default function PortfolioApp() {
         body: JSON.stringify(contactForm)
       });
       if (res.ok) {
-        setContactStatus({ type: 'success', msg: 'Message sent successfully!' });
+        setContactStatus({ type: 'success', msg: 'Message sent successfully! I will get back to you soon.' });
         setContactForm({ senderName: '', email: '', subject: '', message: '' });
       } else {
-        setContactStatus({ type: 'error', msg: 'Failed to send message.' });
+        setContactStatus({ type: 'error', msg: 'Failed to send message. Please try again.' });
       }
     } catch {
       setContactStatus({ type: 'error', msg: 'Network error. Make sure backend is running.' });
@@ -180,32 +252,35 @@ export default function PortfolioApp() {
     if (endpoint === 'messages') fetchMessages(token);
   };
 
+  // --- VIEW LIMITS FOR TWO ROWS ONLY (4 columns = 8 items max on desktop) ---
+  const displayedSkills = skills.slice(0, 8);
+  const displayedProjects = projects.slice(0, 8);
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-cyan-500 selection:text-black relative overflow-x-hidden">
+    <div className={`min-h-screen font-sans transition-colors duration-300 selection:bg-cyan-500 selection:text-black relative overflow-x-hidden ${bgMain}`}>
       
-      {/* --- INLINE KEYFRAMES FOR WATER DROP ANIMATION --- */}
-      <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes waterDrop {
-          0% { transform: translateY(0) scale(1); opacity: 1; }
-          60% { transform: translateY(50px) scale(0.8, 1.2); opacity: 1; }
-          80% { transform: translateY(60px) scale(1.5, 0.5); opacity: 0.8; }
-          100% { transform: translateY(60px) scale(0); opacity: 0; }
-        }
-        @keyframes rippleReveal {
-          0%, 70% { filter: blur(4px); opacity: 0.3; transform: scale(0.98); }
-          85% { filter: blur(0px); opacity: 1; transform: scale(1.02); text-shadow: 0 0 15px rgba(6,182,212,0.8); }
-          100% { filter: blur(0px); opacity: 1; transform: scale(1); text-shadow: 0 0 0px transparent; }
-        }
-        .animate-drop { animation: waterDrop 3s infinite ease-in; }
-        .animate-reveal { animation: rippleReveal 3s infinite ease-out; }
-      `}} />
+      {/* --- FLOATING WHATSAPP BUTTON (Redirects to Number 254746323229) --- */}
+      <a
+        href={`https://wa.me/${profile.whatsappNumber || '254746323229'}?text=Hello%20${encodeURIComponent(profile.name || 'Michael')},%20I'm%20visiting%20your%20portfolio%20website%20and%20would%20like%20to%20get%20in%20touch!`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="fixed bottom-6 right-6 z-50 bg-[#25D366] hover:bg-[#20ba5a] text-white p-4 rounded-full shadow-2xl transition-all duration-300 hover:scale-110 flex items-center justify-center group"
+        aria-label="Chat on WhatsApp"
+      >
+        <svg className="w-7 h-7 fill-current" viewBox="0 0 24 24">
+          <path d="M12.031 6.172c-3.181 0-5.767 2.586-5.768 5.766-.001 1.298.38 2.27 1.019 3.287l-.582 2.128 2.182-.573c.978.58 1.911.928 3.145.929 3.178 0 5.767-2.587 5.768-5.766.001-3.187-2.575-5.77-5.764-5.771zm3.392 8.244c-.144.405-.837.774-1.17.824-.299.045-.677.063-1.092-.069-.252-.08-.575-.187-.988-.365-1.739-.751-2.874-2.502-2.961-2.617-.087-.116-.708-.94-.708-1.793s.448-1.273.607-1.446c.159-.173.346-.217.462-.217l.332.006c.106.005.249-.04.39.298.144.347.491 1.2.534 1.287.043.087.072.188.014.304-.058.116-.087.188-.173.289l-.26.304c-.087.086-.177.18-.076.354.101.174.449.741.964 1.201.662.591 1.221.774 1.394.86s.274.072.376-.043c.101-.116.433-.506.549-.68.116-.173.231-.145.39-.087s1.011.477 1.184.564.289.13.332.202c.045.072.045.419-.1.824zm-3.423-14.416c-6.627 0-12 5.373-12 12 0 2.131.558 4.135 1.547 5.885l-1.644 6.002 6.166-1.619c1.696.924 3.636 1.458 5.694 1.46 6.627 0 12-5.373 12-12 0-6.627-5.373-12-12-12z"/>
+        </svg>
+        <span className="absolute right-16 bg-slate-900 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+          Chat on WhatsApp
+        </span>
+      </a>
 
       {/* --- NAVIGATION BAR --- */}
-      <nav className="fixed top-0 left-0 right-0 z-40 bg-slate-950/80 backdrop-blur-md border-b border-slate-800 px-6 py-4 flex justify-between items-center">
+      <nav className={`fixed top-0 left-0 right-0 z-40 backdrop-blur-md border-b px-6 py-4 flex justify-between items-center transition-colors ${isDarkMode ? 'bg-slate-950/80 border-slate-800' : 'bg-white/80 border-slate-200'}`}>
         <a href="#" className="text-xl font-extrabold tracking-wider bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
           {profile.name.toUpperCase()}
         </a>
-        <div className="hidden md:flex gap-8 text-sm font-semibold text-slate-300">
+        <div className={`hidden md:flex gap-8 text-sm font-semibold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>
           <a href="#about" className="hover:text-cyan-400 transition-colors">About</a>
           <a href="#skills" className="hover:text-cyan-400 transition-colors">Skills</a>
           <a href="#projects" className="hover:text-cyan-400 transition-colors">Projects</a>
@@ -213,24 +288,35 @@ export default function PortfolioApp() {
           <a href="#contact" className="hover:text-cyan-400 transition-colors">Contact</a>
         </div>
         
-        {/* Hidden Admin Trigger Dot */}
-        <button 
-          onClick={() => { setIsAdminOpen(true); if(token) fetchMessages(token); }}
-          title=""
-          className="w-2 h-2 rounded-full bg-slate-800/60 hover:bg-cyan-500/50 transition-all opacity-30 hover:opacity-100 focus:outline-none"
-          aria-label="."
-        />
+        <div className="flex items-center gap-3">
+          {/* Light / Dark Mode Toggle Button */}
+          <button 
+            onClick={() => setIsDarkMode(!isDarkMode)} 
+            className={`p-2 rounded-full border transition-all ${isDarkMode ? 'bg-slate-900 border-slate-700 text-yellow-400 hover:border-yellow-400' : 'bg-slate-100 border-slate-300 text-slate-700 hover:border-slate-500'}`}
+            aria-label="Toggle Theme"
+          >
+            {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
+          </button>
+
+          {/* Admin Button */}
+          <button 
+            onClick={() => { setIsAdminOpen(true); if(token) fetchMessages(token); }}
+            className={`flex items-center gap-2 border text-xs font-semibold px-3 py-1.5 rounded-full transition-all shadow-sm ${isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-300 hover:border-cyan-500 hover:text-white' : 'bg-slate-100 border-slate-300 text-slate-700 hover:border-cyan-500 hover:text-black'}`}
+          >
+            <Lock size={14} className="text-cyan-400" /> Admin
+          </button>
+        </div>
       </nav>
 
-      {/* --- LANDING / HERO SECTION (Dynamic 8s Rotation) --- */}
-      <section className="relative h-screen w-full flex flex-col justify-center items-center text-center px-4 overflow-hidden">
+      {/* --- PROFESSIONAL LANDING / HERO SECTION --- */}
+      <section id="about" className="relative min-h-screen w-full flex items-center justify-center px-6 pt-24 pb-16 overflow-hidden">
         {/* Background Media Slider */}
-        <div className="absolute inset-0 z-0">
+        <div className="absolute inset-0 z-0 pointer-events-none">
           {profile.heroMedia && profile.heroMedia.length > 0 ? (
             profile.heroMedia.map((media, idx) => (
               <div 
                 key={idx} 
-                className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${idx === activeMediaIndex ? 'opacity-30 scale-105' : 'opacity-0 scale-100'} transition-transform duration-[8000ms]`}
+                className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${idx === activeMediaIndex ? 'opacity-20 scale-105' : 'opacity-0 scale-100'} transition-transform duration-[8000ms]`}
               >
                 {media.type === 'video' ? (
                   <video src={media.url} autoPlay loop muted playsInline className="w-full h-full object-cover" />
@@ -240,180 +326,346 @@ export default function PortfolioApp() {
               </div>
             ))
           ) : (
-            <div className="absolute inset-0 bg-gradient-to-b from-slate-900 to-slate-950 opacity-50" />
+            <div className={`absolute inset-0 bg-gradient-to-b ${isDarkMode ? 'from-slate-900/40 to-slate-950' : 'from-slate-200/40 to-slate-50'} opacity-50`} />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/60 to-transparent" />
+          <div className={`absolute inset-0 bg-gradient-to-t ${isDarkMode ? 'from-slate-950 via-slate-950/60 to-transparent' : 'from-slate-50 via-slate-50/60 to-transparent'}`} />
         </div>
 
-        {/* Hero Content with Water Drop Reveal Animation */}
-        <div className="relative z-10 max-w-4xl mx-auto flex flex-col items-center">
+        {/* Hero Content: Professional Side-by-Side on Desktop, Stacked on Mobile */}
+        <div className="relative z-10 max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           
-          {/* Cool Effect Name */}
-          <div className="relative mb-4">
-            <h1 className="text-6xl md:text-8xl font-black tracking-tight bg-gradient-to-b from-white via-slate-200 to-slate-500 bg-clip-text text-transparent drop-shadow-[0_10px_20px_rgba(0,0,0,0.8)]">
-              {profile.name}
+          {/* Left Text Column */}
+          <div className="lg:col-span-7 space-y-6 text-center lg:text-left order-2 lg:order-1">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-400 text-xs font-bold uppercase tracking-widest animate-pulse">
+              <span className="w-2 h-2 rounded-full bg-cyan-400" /> Welcome to My Portfolio
+            </div>
+
+            <h1 className={`text-5xl sm:text-6xl md:text-7xl font-black tracking-tight leading-none ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+              Hi, I&apos;m <span className="bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500 bg-clip-text text-transparent">{profile.name}</span>
             </h1>
-            {/* The Falling Water Drop */}
-            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-3 h-4 bg-gradient-to-b from-cyan-300 to-blue-500 rounded-full animate-drop shadow-[0_0_10px_#06b6d4]" />
+
+            {/* Typewriter Animation Container */}
+            <div className="h-12 flex items-center justify-center lg:justify-start">
+              <h2 className="text-lg sm:text-2xl md:text-3xl font-extrabold text-cyan-400 tracking-wide font-mono flex items-center">
+                <span>{displayedProfession}</span>
+                <span className="w-0.5 h-7 bg-cyan-400 ml-1 animate-ping inline-block" />
+              </h2>
+            </div>
+
+            <p className={`text-base sm:text-lg max-w-2xl font-light leading-relaxed ${textMuted}`}>
+              {profile.about}
+            </p>
+
+            {/* Action Buttons */}
+            <div className="pt-4 flex flex-wrap gap-4 justify-center lg:justify-start items-center">
+              <a href="#projects" className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-semibold px-8 py-3.5 rounded-full shadow-lg shadow-cyan-500/25 transition-all transform hover:-translate-y-0.5">
+                View My Work
+              </a>
+              
+              {/* DOWNLOAD CV BUTTON (Links to root docs folder in GitHub) */}
+              <a 
+                href={`https://raw.githubusercontent.com/${profile.githubUsername || 'michael'}/${profile.githubRepo || 'portfolio'}/main/docs/Michael.docx`}
+                download="Michael.docx"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`flex items-center gap-2 font-semibold px-6 py-3.5 rounded-full border transition-all transform hover:-translate-y-0.5 shadow-sm ${isDarkMode ? 'bg-slate-900/80 hover:bg-slate-800 border-slate-700 text-slate-200' : 'bg-white hover:bg-slate-100 border-slate-300 text-slate-800'}`}
+              >
+                <Download size={18} className="text-cyan-400" />
+                Download CV
+              </a>
+
+              <a href="#contact" className={`font-semibold px-6 py-3.5 rounded-full border transition-all ${isDarkMode ? 'border-slate-800 hover:border-slate-700 text-slate-400 hover:text-white' : 'border-slate-300 hover:border-slate-400 text-slate-600 hover:text-black'}`}>
+                Get in Touch
+              </a>
+            </div>
           </div>
 
-          {/* Profession Revealed by Drop Impact */}
-          <div className="mt-8 pt-2">
-            <h2 className="text-2xl md:text-4xl font-extrabold tracking-widest text-cyan-400 uppercase animate-reveal border-b-2 border-cyan-500/30 pb-2 px-6 inline-block">
-              {profile.profession}
-            </h2>
+          {/* Right Profile Picture Column */}
+          <div className="lg:col-span-5 flex justify-center items-center order-1 lg:order-2">
+            <div className="relative group">
+              {/* Decorative Glowing Backdrop */}
+              <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-500 rounded-full blur-xl opacity-75 group-hover:opacity-100 transition duration-500 animate-pulse" />
+              <div className={`relative w-64 h-64 sm:w-80 sm:h-80 md:w-96 md:h-96 rounded-full overflow-hidden border-4 ${isDarkMode ? 'border-slate-900 bg-slate-900' : 'border-white bg-white'} shadow-2xl flex items-center justify-center`}>
+                <img 
+                  src={profile.profilePicUrl} 
+                  alt={profile.name} 
+                  className="w-full h-full object-cover transform transition-transform duration-700 group-hover:scale-105" 
+                />
+              </div>
+            </div>
           </div>
 
-          <p id="about" className="mt-8 text-lg md:text-xl text-slate-300 max-w-2xl font-light leading-relaxed">
-            {profile.about}
-          </p>
-
-          <div className="mt-10 flex gap-4">
-            <a href="#projects" className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-semibold px-8 py-3.5 rounded-full shadow-lg shadow-cyan-500/25 transition-all transform hover:-translate-y-0.5">
-              View My Work
-            </a>
-            <a href="#contact" className="bg-slate-900/80 hover:bg-slate-800 border border-slate-700 text-slate-200 font-semibold px-8 py-3.5 rounded-full backdrop-blur-sm transition-all">
-              Get in Touch
-            </a>
-          </div>
         </div>
 
         {/* Slide Indicator Dots */}
-        <div className="absolute bottom-8 z-10 flex gap-2">
-          {profile.heroMedia?.map((_, idx) => (
-            <button 
-              key={idx} 
-              onClick={() => setActiveMediaIndex(idx)}
-              className={`h-1.5 rounded-full transition-all duration-300 ${idx === activeMediaIndex ? 'w-8 bg-cyan-400' : 'w-2 bg-slate-600'}`} 
-            />
-          ))}
-        </div>
+        {profile.heroMedia && profile.heroMedia.length > 0 && (
+          <div className="absolute bottom-6 z-10 flex gap-2">
+            {profile.heroMedia.map((_, idx) => (
+              <button 
+                key={idx} 
+                onClick={() => setActiveMediaIndex(idx)}
+                className={`h-1.5 rounded-full transition-all duration-300 ${idx === activeMediaIndex ? 'w-8 bg-cyan-400' : 'w-2 bg-slate-600'}`} 
+              />
+            ))}
+          </div>
+        )}
       </section>
 
-      {/* --- SKILLS SECTION (Clickable Divs with Images) --- */}
-      <section id="skills" className="py-24 px-6 max-w-7xl mx-auto">
+      {/* --- SKILLS SECTION (2 Rows Max Initially, 4 columns on Laptops, 2 on Phones) --- */}
+      <section id="skills" className={`py-24 px-6 max-w-7xl mx-auto border-t ${borderCol}`}>
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-5xl font-bold tracking-tight">Technical <span className="text-cyan-400">Skills</span></h2>
-          <p className="text-slate-400 mt-3">Click on any skill card to view detailed proficiency and experience.</p>
+          <p className={`${textMuted} mt-3`}>Click on any card to view detailed proficiency and expertise.</p>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-6">
-          {skills.map((skill) => (
+        {/* 4 Columns Laptops/Computers (lg:grid-cols-4), 2 Columns Phones (grid-cols-2) */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {displayedSkills.map((skill) => (
             <div 
               key={skill._id}
               onClick={() => setSelectedSkill(skill)}
-              className="group bg-slate-900/60 border border-slate-800 hover:border-cyan-500/50 rounded-2xl p-5 flex flex-col items-center text-center cursor-pointer transition-all duration-300 hover:shadow-[0_0_25px_rgba(6,182,212,0.15)] hover:-translate-y-1"
+              className={`group border rounded-2xl p-6 flex flex-col items-center text-center cursor-pointer transition-all duration-300 transform hover:-translate-y-1 ${bgCard} ${bgCardHover}`}
             >
-              <div className="w-16 h-16 rounded-xl bg-slate-800/80 p-3 mb-4 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <div className={`w-16 h-16 rounded-xl p-3 mb-4 flex items-center justify-center group-hover:scale-110 transition-transform ${isDarkMode ? 'bg-slate-800/80' : 'bg-slate-100'}`}>
                 <img src={skill.imageUrl} alt={skill.title} className="max-w-full max-h-full object-contain" />
               </div>
-              <h3 className="font-bold text-slate-200 group-hover:text-cyan-400 transition-colors">{skill.title}</h3>
-              <span className="text-xs text-slate-500 mt-1">{skill.category}</span>
-              <span className="mt-3 text-[10px] uppercase tracking-wider px-2 py-0.5 rounded bg-slate-800 text-cyan-300 font-semibold">
+              <h3 className={`font-bold transition-colors group-hover:text-cyan-400 ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{skill.title}</h3>
+              <span className={`text-xs mt-1 ${textMuted}`}>{skill.category}</span>
+              <span className="mt-3 text-[10px] uppercase tracking-wider px-2.5 py-1 rounded bg-cyan-500/10 text-cyan-400 font-semibold border border-cyan-500/20">
                 {skill.level}
               </span>
             </div>
           ))}
         </div>
+
+        {/* View All Skills Button if items exceed 2 rows (8 items) */}
+        {skills.length > 8 && (
+          <div className="mt-12 text-center">
+            <button
+              onClick={() => setShowAllSkillsModal(true)}
+              className="inline-flex items-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-semibold px-8 py-3.5 rounded-full shadow-lg shadow-cyan-500/20 transition-all transform hover:-translate-y-0.5"
+            >
+              <LayoutGrid size={18} /> View All Skills ({skills.length})
+            </button>
+          </div>
+        )}
       </section>
 
       {/* --- SKILL DETAIL MODAL --- */}
       {selectedSkill && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 relative shadow-2xl animate-in fade-in zoom-in duration-200">
-            <button onClick={() => setSelectedSkill(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className={`border rounded-2xl max-w-md w-full p-6 relative shadow-2xl ${isDarkMode ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-300'}`}>
+            <button onClick={() => setSelectedSkill(null)} className={`absolute top-4 right-4 ${textMuted} hover:text-red-400`}>
               <X size={20} />
             </button>
             <div className="flex items-center gap-4 mb-4">
-              <img src={selectedSkill.imageUrl} alt={selectedSkill.title} className="w-12 h-12 object-contain bg-slate-800 p-2 rounded-lg" />
+              <img src={selectedSkill.imageUrl} alt={selectedSkill.title} className={`w-14 h-14 object-contain p-2 rounded-xl ${isDarkMode ? 'bg-slate-800' : 'bg-slate-100'}`} />
               <div>
-                <h3 className="text-xl font-bold text-white">{selectedSkill.title}</h3>
+                <h3 className={`text-xl font-bold ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{selectedSkill.title}</h3>
                 <span className="text-xs text-cyan-400 font-semibold">{selectedSkill.category} • {selectedSkill.level}</span>
               </div>
             </div>
-            <p className="text-slate-300 text-sm leading-relaxed border-t border-slate-800 pt-4">
-              {selectedSkill.description}
+            <p className={`text-sm leading-relaxed border-t pt-4 ${borderCol} ${isDarkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+              {selectedSkill.description || 'Proficient in deploying scalable solutions and optimizing workflow efficiency using this technology.'}
             </p>
           </div>
         </div>
       )}
 
-      {/* --- PROJECTS SECTION (Clickable Cards with External Redirects) --- */}
-      <section id="projects" className="py-24 px-6 bg-slate-900/30 border-y border-slate-900">
+      {/* --- PROJECTS SECTION (2 Rows Max Initially, 4 columns Laptops, 2 Phones) --- */}
+      <section id="projects" className={`py-24 px-6 border-y ${borderCol} ${isDarkMode ? 'bg-slate-900/30' : 'bg-slate-100/50'}`}>
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-5xl font-bold tracking-tight">Featured <span className="text-cyan-400">Projects</span></h2>
-            <p className="text-slate-400 mt-3">Explore my latest full-stack applications and deployments.</p>
+            <p className={`${textMuted} mt-3`}>Explore my latest applications, architectures, and deployments.</p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {projects.map((project) => (
+          {/* 4 Columns Laptops/Computers (lg:grid-cols-4), 2 Columns Phones (grid-cols-2) */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {displayedProjects.map((project) => (
               <div 
                 key={project._id}
-                onClick={() => window.open(project.projectUrl, '_blank')}
-                className="group bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden cursor-pointer flex flex-col justify-between transition-all duration-300 hover:border-slate-700 hover:shadow-2xl hover:-translate-y-1.5"
+                onClick={() => window.open(project.projectUrl || project.repoUrl || '#', '_blank')}
+                className={`group border rounded-2xl overflow-hidden cursor-pointer flex flex-col justify-between transition-all duration-300 transform hover:-translate-y-1.5 ${bgCard} ${bgCardHover}`}
               >
                 <div>
-                  <div className="relative h-48 w-full overflow-hidden bg-slate-800">
+                  <div className={`relative h-44 sm:h-48 w-full overflow-hidden ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`}>
                     <img 
-                      src={project.imageUrl} 
+                      src={project.imageUrl || 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=600&auto=format&fit=crop&q=80'} 
                       alt={project.title} 
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
                     />
                     <div className="absolute inset-0 bg-slate-950/20 group-hover:bg-transparent transition-colors" />
                   </div>
-                  <div className="p-6">
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="text-xl font-bold text-white group-hover:text-cyan-400 transition-colors flex items-center gap-2">
-                        {project.title}
-                        <ExternalLink size={16} className="opacity-0 group-hover:opacity-100 transition-opacity" />
-                      </h3>
-                    </div>
-                    <p className="text-slate-400 text-sm line-clamp-3 mb-4">{project.description}</p>
+                  <div className="p-5">
+                    <h3 className={`text-base sm:text-lg font-bold group-hover:text-cyan-400 transition-colors flex items-center justify-between gap-1 mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                      <span className="truncate">{project.title}</span>
+                      <ExternalLink size={16} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-cyan-400" />
+                    </h3>
+                    <p className={`text-xs sm:text-sm line-clamp-2 mb-4 ${textMuted}`}>{project.description}</p>
                     <div className="flex flex-wrap gap-1.5">
                       {project.technologies?.map((tech, idx) => (
-                        <span key={idx} className="text-[11px] font-medium bg-slate-800/80 text-slate-300 px-2.5 py-1 rounded-md border border-slate-700/50">
+                        <span key={idx} className={`text-[10px] font-medium px-2 py-0.5 rounded border ${isDarkMode ? 'bg-slate-800 text-slate-300 border-slate-700' : 'bg-slate-100 text-slate-700 border-slate-300'}`}>
                           {tech}
                         </span>
                       ))}
                     </div>
                   </div>
                 </div>
-                {project.repoUrl && (
-                  <div className="px-6 py-3 bg-slate-950/50 border-t border-slate-800/80 flex justify-end" onClick={(e) => e.stopPropagation()}>
-                    <a href={project.repoUrl} target="_blank" rel="noreferrer" className="text-xs text-slate-400 hover:text-white flex items-center gap-1.5 font-semibold">
-                      <svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 24 24" height="14" width="14" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235-1.911 1.235-3.221 0-4.609-2.807-5.624-5.479-5.921.43-.372.823-1.102.823-2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                      </svg> Source Code
+
+                {/* Footer with multiple URL links if available */}
+                <div className={`px-5 py-3 border-t flex justify-between items-center text-xs font-semibold ${borderCol} ${isDarkMode ? 'bg-slate-950/50 text-slate-400' : 'bg-slate-50 text-slate-600'}`} onClick={(e) => e.stopPropagation()}>
+                  {project.repoUrl ? (
+                    <a href={project.repoUrl} target="_blank" rel="noreferrer" className="hover:text-cyan-400 flex items-center gap-1">
+                      <Github size={14} /> Code
                     </a>
+                  ) : <span />}
+                  
+                  <div className="flex items-center gap-3">
+                    {project.demoUrl && (
+                      <a href={project.demoUrl} target="_blank" rel="noreferrer" className="hover:text-cyan-400 flex items-center gap-1">
+                        <Globe size={14} /> Demo
+                      </a>
+                    )}
+                    {project.docsUrl && (
+                      <a href={project.docsUrl} target="_blank" rel="noreferrer" className="hover:text-cyan-400 flex items-center gap-1">
+                        <Code size={14} /> Docs
+                      </a>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
             ))}
           </div>
+
+          {/* View More Projects Button -> Opens Full Gallery Page/Modal */}
+          {projects.length > 8 && (
+            <div className="mt-12 text-center">
+              <button
+                onClick={() => setShowAllProjectsModal(true)}
+                className="inline-flex items-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-semibold px-8 py-3.5 rounded-full shadow-lg shadow-cyan-500/20 transition-all transform hover:-translate-y-0.5"
+              >
+                <LayoutGrid size={18} /> View All Projects ({projects.length})
+              </button>
+            </div>
+          )}
         </div>
       </section>
 
+      {/* --- FULL-SCREEN ALL PROJECTS MODAL ("opens a page displaying all of them") --- */}
+      {showAllProjectsModal && (
+        <div className={`fixed inset-0 z-50 overflow-y-auto p-6 transition-colors ${bgMain}`}>
+          <div className="max-w-7xl mx-auto py-12">
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-12 border-b pb-6 border-slate-800">
+              <div>
+                <button 
+                  onClick={() => setShowAllProjectsModal(false)}
+                  className="inline-flex items-center gap-2 text-sm font-semibold text-cyan-400 hover:underline mb-2"
+                >
+                  <ArrowLeft size={16} /> Back to Landing Page
+                </button>
+                <h2 className="text-3xl sm:text-5xl font-black">All <span className="text-cyan-400">Projects Gallery</span></h2>
+              </div>
+              <button 
+                onClick={() => setShowAllProjectsModal(false)}
+                className={`p-3 rounded-full border ${isDarkMode ? 'bg-slate-900 border-slate-700 text-white hover:bg-slate-800' : 'bg-slate-100 border-slate-300 text-slate-800 hover:bg-slate-200'}`}
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            {/* Same 4-column desktop / 2-column mobile grid displaying ALL items */}
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {projects.map((project) => (
+                <div 
+                  key={project._id}
+                  onClick={() => window.open(project.projectUrl || project.repoUrl || '#', '_blank')}
+                  className={`group border rounded-2xl overflow-hidden cursor-pointer flex flex-col justify-between transition-all duration-300 transform hover:-translate-y-1.5 ${bgCard} ${bgCardHover}`}
+                >
+                  <div>
+                    <div className={`relative h-44 sm:h-48 w-full overflow-hidden ${isDarkMode ? 'bg-slate-800' : 'bg-slate-200'}`}>
+                      <img src={project.imageUrl || 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=600&auto=format&fit=crop&q=80'} alt={project.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    </div>
+                    <div className="p-5">
+                      <h3 className={`text-base sm:text-lg font-bold group-hover:text-cyan-400 transition-colors flex items-center justify-between gap-1 mb-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                        <span className="truncate">{project.title}</span>
+                        <ExternalLink size={16} className="shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-cyan-400" />
+                      </h3>
+                      <p className={`text-xs sm:text-sm line-clamp-3 mb-4 ${textMuted}`}>{project.description}</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {project.technologies?.map((tech, idx) => (
+                          <span key={idx} className={`text-[10px] font-medium px-2 py-0.5 rounded border ${isDarkMode ? 'bg-slate-800 text-slate-300 border-slate-700' : 'bg-slate-100 text-slate-700 border-slate-300'}`}>
+                            {tech}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div className={`px-5 py-3 border-t flex justify-between items-center text-xs font-semibold ${borderCol} ${isDarkMode ? 'bg-slate-950/50 text-slate-400' : 'bg-slate-50 text-slate-600'}`} onClick={(e) => e.stopPropagation()}>
+                    {project.repoUrl ? <a href={project.repoUrl} target="_blank" rel="noreferrer" className="hover:text-cyan-400 flex items-center gap-1"><Github size={14} /> Code</a> : <span />}
+                    <div className="flex items-center gap-3">
+                      {project.demoUrl && <a href={project.demoUrl} target="_blank" rel="noreferrer" className="hover:text-cyan-400 flex items-center gap-1"><Globe size={14} /> Demo</a>}
+                      {project.docsUrl && <a href={project.docsUrl} target="_blank" rel="noreferrer" className="hover:text-cyan-400 flex items-center gap-1"><Code size={14} /> Docs</a>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- FULL-SCREEN ALL SKILLS MODAL --- */}
+      {showAllSkillsModal && (
+        <div className={`fixed inset-0 z-50 overflow-y-auto p-6 transition-colors ${bgMain}`}>
+          <div className="max-w-7xl mx-auto py-12">
+            <div className="flex justify-between items-center gap-4 mb-12 border-b pb-6 border-slate-800">
+              <div>
+                <button onClick={() => setShowAllSkillsModal(false)} className="inline-flex items-center gap-2 text-sm font-semibold text-cyan-400 hover:underline mb-2">
+                  <ArrowLeft size={16} /> Back to Landing Page
+                </button>
+                <h2 className="text-3xl sm:text-5xl font-black">All <span className="text-cyan-400">Technical Skills</span></h2>
+              </div>
+              <button onClick={() => setShowAllSkillsModal(false)} className={`p-3 rounded-full border ${isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-100 border-slate-300 text-slate-800'}`}>
+                <X size={24} />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {skills.map((skill) => (
+                <div key={skill._id} onClick={() => { setSelectedSkill(skill); setShowAllSkillsModal(false); }} className={`group border rounded-2xl p-6 flex flex-col items-center text-center cursor-pointer transition-all duration-300 transform hover:-translate-y-1 ${bgCard} ${bgCardHover}`}>
+                  <div className={`w-16 h-16 rounded-xl p-3 mb-4 flex items-center justify-center ${isDarkMode ? 'bg-slate-800/80' : 'bg-slate-100'}`}>
+                    <img src={skill.imageUrl} alt={skill.title} className="max-w-full max-h-full object-contain" />
+                  </div>
+                  <h3 className={`font-bold transition-colors group-hover:text-cyan-400 ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>{skill.title}</h3>
+                  <span className={`text-xs mt-1 ${textMuted}`}>{skill.category}</span>
+                  <span className="mt-3 text-[10px] uppercase tracking-wider px-2.5 py-1 rounded bg-cyan-500/10 text-cyan-400 font-semibold border border-cyan-500/20">{skill.level}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* --- EDUCATION & CERTIFICATIONS SECTION --- */}
-      <section id="education" className="py-24 px-6 max-w-5xl mx-auto">
+      <section id="education" className="py-24 px-6 max-w-6xl mx-auto">
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-5xl font-bold tracking-tight">Education & <span className="text-cyan-400">Certifications</span></h2>
-          <p className="text-slate-400 mt-3">My academic background and professional accreditations.</p>
+          <p className={`${textMuted} mt-3`}>My academic milestones and professional technical accreditations.</p>
         </div>
 
         <div className="grid md:grid-cols-2 gap-12">
           {/* Education Column */}
-          <div>
-            <h3 className="text-xl font-bold mb-6 flex items-center gap-2 text-slate-200 border-b border-slate-800 pb-3">
+          <div className={`p-8 rounded-2xl border ${bgCard}`}>
+            <h3 className={`text-xl font-bold mb-6 flex items-center gap-2 border-b pb-3 ${borderCol} ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
               <GraduationCap className="text-cyan-400" /> Academic Background
             </h3>
-            <div className="space-y-6 border-l-2 border-slate-800 pl-6 ml-2">
+            <div className={`space-y-6 border-l-2 pl-6 ml-2 ${isDarkMode ? 'border-slate-800' : 'border-slate-300'}`}>
               {education.map((edu) => (
                 <div key={edu._id} className="relative">
-                  <div className="absolute -left-[31px] top-1.5 w-3 h-3 rounded-full bg-cyan-500 ring-4 ring-slate-950" />
-                  <span className="text-xs font-semibold text-cyan-400 tracking-wider uppercase">{edu.year}</span>
-                  <h4 className="text-lg font-bold text-white mt-1">{edu.title}</h4>
-                  <p className="text-sm font-medium text-slate-400">{edu.institution}</p>
+                  <div className={`absolute -left-[31px] top-1.5 w-3 h-3 rounded-full bg-cyan-500 ring-4 ${isDarkMode ? 'ring-slate-900' : 'ring-white'}`} />
+                  <span className="text-xs font-bold text-cyan-400 tracking-wider uppercase">{edu.year}</span>
+                  <h4 className={`text-base sm:text-lg font-bold mt-1 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{edu.title}</h4>
+                  <p className={`text-sm font-medium ${textMuted}`}>{edu.institution}</p>
                   {edu.description && <p className="text-xs text-slate-500 mt-2">{edu.description}</p>}
                 </div>
               ))}
@@ -421,17 +673,17 @@ export default function PortfolioApp() {
           </div>
 
           {/* Certifications Column */}
-          <div>
-            <h3 className="text-xl font-bold mb-6 flex items-center gap-2 text-slate-200 border-b border-slate-800 pb-3">
-              <Award className="text-cyan-400" /> Certifications
+          <div className={`p-8 rounded-2xl border ${bgCard}`}>
+            <h3 className={`text-xl font-bold mb-6 flex items-center gap-2 border-b pb-3 ${borderCol} ${isDarkMode ? 'text-slate-200' : 'text-slate-800'}`}>
+              <Award className="text-cyan-400" /> Accreditations & Certs
             </h3>
-            <div className="space-y-6 border-l-2 border-slate-800 pl-6 ml-2">
+            <div className={`space-y-6 border-l-2 pl-6 ml-2 ${isDarkMode ? 'border-slate-800' : 'border-slate-300'}`}>
               {certifications.map((cert) => (
                 <div key={cert._id} className="relative">
-                  <div className="absolute -left-[31px] top-1.5 w-3 h-3 rounded-full bg-blue-500 ring-4 ring-slate-950" />
-                  <span className="text-xs font-semibold text-blue-400 tracking-wider uppercase">{cert.year}</span>
-                  <h4 className="text-lg font-bold text-white mt-1">{cert.title}</h4>
-                  <p className="text-sm font-medium text-slate-400">{cert.institution}</p>
+                  <div className={`absolute -left-[31px] top-1.5 w-3 h-3 rounded-full bg-blue-500 ring-4 ${isDarkMode ? 'ring-slate-900' : 'ring-white'}`} />
+                  <span className="text-xs font-bold text-blue-400 tracking-wider uppercase">{cert.year}</span>
+                  <h4 className={`text-base sm:text-lg font-bold mt-1 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{cert.title}</h4>
+                  <p className={`text-sm font-medium ${textMuted}`}>{cert.institution}</p>
                   {cert.certificateUrl && (
                     <a href={cert.certificateUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-cyan-400 hover:underline mt-2 font-semibold">
                       View Certificate <ExternalLink size={12} />
@@ -444,105 +696,111 @@ export default function PortfolioApp() {
         </div>
       </section>
 
-      {/* --- CONTACT FORM SECTION --- */}
-      <section id="contact" className="py-24 px-6 bg-slate-900/50 border-t border-slate-900">
-        <div className="max-w-xl mx-auto">
+      {/* --- ALL-DEVICE COMPATIBLE CONTACT FORM SECTION --- */}
+      <section id="contact" className={`py-24 px-6 border-t ${borderCol} ${isDarkMode ? 'bg-slate-900/40' : 'bg-slate-100/60'}`}>
+        <div className="max-w-2xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-5xl font-bold tracking-tight">Get in <span className="text-cyan-400">Touch</span></h2>
-            <p className="text-slate-400 mt-3">Have a question or want to work together? Send a direct message.</p>
+            <p className={`${textMuted} mt-3`}>Have a project inquiry, job opportunity, or question? Send a direct message below.</p>
           </div>
 
-          <form onSubmit={handleContactSubmit} className="space-y-4 bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-xl">
-            <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Your Name</label>
-              <input 
-                type="text" required 
-                value={contactForm.senderName} 
-                onChange={(e) => setContactForm({...contactForm, senderName: e.target.value})}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-500 transition-colors"
-                placeholder="John Doe" 
-              />
+          <form onSubmit={handleContactSubmit} className={`space-y-5 border p-6 sm:p-8 rounded-2xl shadow-xl ${bgCard}`}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <div>
+                <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${textMuted}`}>Your Name</label>
+                <input 
+                  type="text" required 
+                  value={contactForm.senderName} 
+                  onChange={(e) => setContactForm({...contactForm, senderName: e.target.value})}
+                  className={`w-full rounded-lg px-4 py-3 text-sm focus:outline-none transition-colors border ${inputBg}`}
+                  placeholder="John Doe" 
+                />
+              </div>
+              <div>
+                <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${textMuted}`}>Email Address</label>
+                <input 
+                  type="email" required 
+                  value={contactForm.email} 
+                  onChange={(e) => setContactForm({...contactForm, email: e.target.value})}
+                  className={`w-full rounded-lg px-4 py-3 text-sm focus:outline-none transition-colors border ${inputBg}`}
+                  placeholder="john@example.com" 
+                />
+              </div>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Email Address</label>
-              <input 
-                type="email" required 
-                value={contactForm.email} 
-                onChange={(e) => setContactForm({...contactForm, email: e.target.value})}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-500 transition-colors"
-                placeholder="john@example.com" 
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Subject</label>
+              <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${textMuted}`}>Subject</label>
               <input 
                 type="text" required 
                 value={contactForm.subject} 
                 onChange={(e) => setContactForm({...contactForm, subject: e.target.value})}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-500 transition-colors"
-                placeholder="Project Inquiry" 
+                className={`w-full rounded-lg px-4 py-3 text-sm focus:outline-none transition-colors border ${inputBg}`}
+                placeholder="Project Inquiry / Job Offer" 
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Message</label>
+              <label className={`block text-xs font-bold uppercase tracking-wider mb-2 ${textMuted}`}>Message</label>
               <textarea 
-                rows={4} required 
+                rows={5} required 
                 value={contactForm.message} 
                 onChange={(e) => setContactForm({...contactForm, message: e.target.value})}
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-cyan-500 transition-colors resize-none"
-                placeholder="Hello, I'd like to discuss a project..." 
+                className={`w-full rounded-lg px-4 py-3 text-sm focus:outline-none transition-colors border resize-none ${inputBg}`}
+                placeholder="Hello Michael, I'd like to discuss building a web application..." 
               />
             </div>
 
             {contactStatus.msg && (
-              <div className={`p-3 rounded-lg text-xs font-semibold flex items-center gap-2 ${contactStatus.type === 'success' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
+              <div className={`p-4 rounded-lg text-xs font-semibold flex items-center gap-2 border ${contactStatus.type === 'success' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+                {contactStatus.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
                 {contactStatus.msg}
               </div>
             )}
 
-            <button type="submit" className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold py-3.5 rounded-lg shadow-lg shadow-cyan-500/20 transition-all">
-              Send Message
+            <button type="submit" className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-cyan-500/20 transition-all flex items-center justify-center gap-2">
+              <Send size={18} /> Send Message
             </button>
           </form>
         </div>
       </section>
 
       {/* --- FOOTER --- */}
-      <footer className="py-8 text-center text-xs text-slate-600 border-t border-slate-900">
-        © {new Date().getFullYear()} {profile.name}. Built with Next.js & Express. All rights reserved.
+      <footer className={`py-8 text-center text-xs border-t ${borderCol} ${textMuted}`}>
+        © {new Date().getFullYear()} {profile.name}. Built with Next.js, TypeScript & Tailwind CSS. All rights reserved.
       </footer>
 
 
-      {/* ==========================================
-          COMPREHENSIVE ADMIN DASHBOARD MODAL
-      ========================================== */}
+      {/* =========================================================
+          TWO-PANEL PROFESSIONAL ADMIN DASHBOARD MODAL
+      ========================================================= */}
       {isAdminOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-4 overflow-y-auto">
-          <div className="bg-slate-950 border border-slate-800 rounded-2xl w-full max-w-5xl h-[85vh] flex flex-col shadow-2xl overflow-hidden relative animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-2 sm:p-4 overflow-hidden animate-in fade-in duration-200">
+          <div className="bg-slate-950 border border-slate-800 rounded-2xl w-full max-w-6xl h-[92vh] flex flex-col shadow-2xl overflow-hidden relative">
             
-            {/* Modal Header */}
+            {/* Top Modal Header */}
             <div className="px-6 py-4 bg-slate-900 border-b border-slate-800 flex justify-between items-center shrink-0">
-              <div className="flex items-center gap-2 font-bold text-lg text-white">
-                <ShieldAlert className="text-cyan-400" /> Portfolio Admin Control Panel
+              <div className="flex items-center gap-2 font-bold text-base sm:text-lg text-white">
+                <ShieldAlert className="text-cyan-400" /> Portfolio Control Center
               </div>
               <div className="flex items-center gap-4">
                 {token && (
-                  <button onClick={handleLogout} className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 font-semibold">
+                  <button onClick={handleLogout} className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 font-semibold bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20">
                     <LogOut size={14} /> Logout
                   </button>
                 )}
-                <button onClick={() => setIsAdminOpen(false)} className="text-slate-400 hover:text-white">
-                  <X size={20} />
+                <button onClick={() => setIsAdminOpen(false)} className="text-slate-400 hover:text-white p-1">
+                  <X size={22} />
                 </button>
               </div>
             </div>
 
-            {/* Modal Body */}
-            <div className="flex-1 overflow-y-auto p-6">
-              {!token ? (
-                /* --- LOGIN VIEW --- */
-                <div className="max-w-sm mx-auto my-12 bg-slate-900 p-8 rounded-2xl border border-slate-800">
-                  <h3 className="text-xl font-bold text-center mb-6">Admin Authentication</h3>
+            {/* Modal Content Body */}
+            {!token ? (
+              /* --- LOGIN VIEW --- */
+              <div className="flex-1 flex items-center justify-center p-6 overflow-y-auto">
+                <div className="max-w-sm w-full bg-slate-900 p-8 rounded-2xl border border-slate-800 shadow-xl space-y-6">
+                  <div className="text-center">
+                    <h3 className="text-xl font-bold text-white">Admin Authentication</h3>
+                    <p className="text-xs text-slate-400 mt-1">Enter your credentials to manage website content.</p>
+                  </div>
                   <form onSubmit={handleLogin} className="space-y-4">
                     <div>
                       <label className="text-xs font-semibold text-slate-400 uppercase">Username</label>
@@ -550,7 +808,7 @@ export default function PortfolioApp() {
                         type="text" required
                         value={loginCreds.username}
                         onChange={(e) => setLoginCreds({...loginCreds, username: e.target.value})}
-                        className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white" 
+                        className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-500" 
                         placeholder="admin"
                       />
                     </div>
@@ -560,83 +818,126 @@ export default function PortfolioApp() {
                         type="password" required
                         value={loginCreds.password}
                         onChange={(e) => setLoginCreds({...loginCreds, password: e.target.value})}
-                        className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white" 
+                        className="w-full mt-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-cyan-500" 
                         placeholder="••••••••"
                       />
                     </div>
-                    {loginError && <p className="text-xs text-red-400 text-center">{loginError}</p>}
-                    <button type="submit" className="w-full bg-cyan-500 hover:bg-cyan-400 text-black font-bold py-2.5 rounded-lg transition-colors">
+                    {loginError && <p className="text-xs text-red-400 text-center font-semibold">{loginError}</p>}
+                    <button type="submit" className="w-full bg-cyan-500 hover:bg-cyan-400 text-black font-bold py-3 rounded-lg transition-colors shadow-lg shadow-cyan-500/20">
                       Authenticate
                     </button>
                   </form>
                 </div>
-              ) : (
-                /* --- AUTHENTICATED DASHBOARD --- */
-                <div>
-                  {/* Dashboard Tabs */}
-                  <div className="flex gap-2 border-b border-slate-800 pb-4 mb-6 overflow-x-auto">
-                    {(['profile', 'skills', 'projects', 'education', 'messages'] as const).map((tab) => (
+              </div>
+            ) : (
+              /* --- TWO-PANEL WORKSPACE (Left Sidebar + Right Editor Area) --- */
+              <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
+                
+                {/* PANEL 1: LEFT SIDEBAR NAVIGATION */}
+                <div className="w-full md:w-64 bg-slate-900/90 border-b md:border-b-0 md:border-r border-slate-800 p-3 shrink-0 flex md:flex-col gap-1 overflow-x-auto">
+                  <div className="hidden md:block text-[10px] font-bold text-slate-500 uppercase px-3 py-2 tracking-wider">Navigation Menu</div>
+                  
+                  {[
+                    { id: 'profile', label: 'Profile & URLs', icon: User },
+                    { id: 'skills', label: 'Skills Manager', icon: Code },
+                    { id: 'projects', label: 'Projects & Links', icon: LayoutGrid },
+                    { id: 'education', label: 'Education & Certs', icon: Briefcase },
+                    { id: 'messages', label: `Messages (${messages?.length || 0})`, icon: MessageSquare }
+                  ].map((tab) => {
+                    const Icon = tab.icon;
+                    return (
                       <button 
-                        key={tab}
-                        onClick={() => setAdminTab(tab)}
-                        className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider capitalize whitespace-nowrap transition-all ${adminTab === tab ? 'bg-cyan-500 text-black' : 'bg-slate-900 text-slate-400 hover:text-white'}`}
+                        key={tab.id}
+                        onClick={() => setAdminTab(tab.id as any)}
+                        className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold tracking-wide transition-all whitespace-nowrap text-left ${adminTab === tab.id ? 'bg-cyan-500 text-black shadow-md shadow-cyan-500/10' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
                       >
-                        {tab} {tab === 'messages' && `(${messages?.length || 0})`}
+                        <Icon size={16} /> {tab.label}
                       </button>
-                    ))}
-                  </div>
+                    );
+                  })}
+                </div>
 
-                  {/* TAB 1: PROFILE & HERO MEDIA EDITOR */}
+                {/* PANEL 2: RIGHT MAIN CONTENT AREA (Form Editors) */}
+                <div className="flex-1 overflow-y-auto p-6 bg-slate-950">
+                  
+                  {/* TAB 1: PROFILE, PICTURE, & URL SETTINGS */}
                   {adminTab === 'profile' && (
-                    <div className="space-y-6 max-w-2xl">
-                      <h4 className="text-sm font-bold text-cyan-400 uppercase tracking-wider">General Information</h4>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="text-xs text-slate-400">Display Name</label>
-                          <input type="text" value={editProfile.name} onChange={(e) => setEditProfile({...editProfile, name: e.target.value})} className="w-full mt-1 bg-slate-900 border border-slate-800 rounded p-2 text-sm text-white" />
-                        </div>
-                        <div>
-                          <label className="text-xs text-slate-400">Profession Title</label>
-                          <input type="text" value={editProfile.profession} onChange={(e) => setEditProfile({...editProfile, profession: e.target.value})} className="w-full mt-1 bg-slate-900 border border-slate-800 rounded p-2 text-sm text-white" />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="text-xs text-slate-400">About Bio</label>
-                        <textarea rows={3} value={editProfile.about} onChange={(e) => setEditProfile({...editProfile, about: e.target.value})} className="w-full mt-1 bg-slate-900 border border-slate-800 rounded p-2 text-sm text-white" />
+                    <div className="space-y-6 max-w-3xl">
+                      <div className="border-b border-slate-800 pb-3">
+                        <h4 className="text-base font-bold text-white">General Profile & Contact Information</h4>
+                        <p className="text-xs text-slate-400">Update your public landing page details, avatar picture, and social links.</p>
                       </div>
 
-                      <h4 className="text-sm font-bold text-cyan-400 uppercase tracking-wider pt-4 border-t border-slate-800">Hero Media (8-Sec Rotation Control)</h4>
-                      <div className="space-y-3">
-                        {editProfile.heroMedia?.map((media, idx) => (
-                          <div key={idx} className="flex gap-2 items-center bg-slate-900 p-3 rounded-lg border border-slate-800">
-                            <span className="text-xs font-bold text-slate-500 w-6">#{idx+1}</span>
-                            <select 
-                              value={media.type} 
-                              onChange={(e) => {
-                                const newMedia = [...(editProfile.heroMedia || [])];
-                                newMedia[idx] = { ...newMedia[idx], type: e.target.value as 'image' | 'video' };
-                                setEditProfile({...editProfile, heroMedia: newMedia});
-                              }}
-                              className="bg-slate-950 border border-slate-700 text-xs rounded p-1.5 text-white"
-                            >
-                              <option value="image">Image</option>
-                              <option value="video">Video</option>
-                            </select>
-                            <input 
-                              type="text" 
-                              value={media.url} 
-                              onChange={(e) => {
-                                const newMedia = [...(editProfile.heroMedia || [])];
-                                newMedia[idx] = { ...newMedia[idx], url: e.target.value };
-                                setEditProfile({...editProfile, heroMedia: newMedia});
-                              }}
-                              placeholder="Media URL..." 
-                              className="flex-1 bg-slate-950 border border-slate-700 text-xs rounded p-1.5 text-white" 
-                            />
-                          </div>
-                        ))}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-xs text-slate-400 font-semibold">Display Name</label>
+                          <input type="text" value={editProfile.name} onChange={(e) => setEditProfile({...editProfile, name: e.target.value})} className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" />
+                        </div>
+                        <div>
+                          <label className="text-xs text-slate-400 font-semibold">Profession Titles (Comma separated for Typewriter)</label>
+                          <input type="text" value={editProfile.profession} onChange={(e) => setEditProfile({...editProfile, profession: e.target.value})} className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" placeholder="Full-Stack Developer, UI/UX Designer" />
+                        </div>
                       </div>
-                      <button onClick={updateProfile} className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold px-6 py-2.5 rounded-lg text-sm">
+
+                      <div>
+                        <label className="text-xs text-slate-400 font-semibold">About Bio</label>
+                        <textarea rows={3} value={editProfile.about} onChange={(e) => setEditProfile({...editProfile, about: e.target.value})} className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" />
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-800">
+                        <div>
+                          <label className="text-xs text-slate-400 font-semibold">Profile Picture URL (Landing Page Avatar)</label>
+                          <input type="text" value={editProfile.profilePicUrl || ''} onChange={(e) => setEditProfile({...editProfile, profilePicUrl: e.target.value})} className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" placeholder="https://..." />
+                        </div>
+                        <div>
+                          <label className="text-xs text-slate-400 font-semibold">WhatsApp Phone Number (e.g. 254746323229)</label>
+                          <input type="text" value={editProfile.whatsappNumber || ''} onChange={(e) => setEditProfile({...editProfile, whatsappNumber: e.target.value})} className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" placeholder="254746323229" />
+                        </div>
+                        <div>
+                          <label className="text-xs text-slate-400 font-semibold">GitHub Username (For CV Download Path)</label>
+                          <input type="text" value={editProfile.githubUsername || ''} onChange={(e) => setEditProfile({...editProfile, githubUsername: e.target.value})} className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" placeholder="michael" />
+                        </div>
+                        <div>
+                          <label className="text-xs text-slate-400 font-semibold">GitHub Repo Name (Containing /docs/Michael.docx)</label>
+                          <input type="text" value={editProfile.githubRepo || ''} onChange={(e) => setEditProfile({...editProfile, githubRepo: e.target.value})} className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" placeholder="portfolio" />
+                        </div>
+                      </div>
+
+                      <div className="pt-4 border-t border-slate-800">
+                        <h4 className="text-sm font-bold text-cyan-400 uppercase tracking-wider mb-3">Hero Media Slider (8-Sec Rotation Control)</h4>
+                        <div className="space-y-3">
+                          {editProfile.heroMedia?.map((media, idx) => (
+                            <div key={idx} className="flex gap-2 items-center bg-slate-900 p-3 rounded-lg border border-slate-800">
+                              <span className="text-xs font-bold text-slate-500 w-6">#{idx+1}</span>
+                              <select 
+                                value={media.type} 
+                                onChange={(e) => {
+                                  const newMedia = [...(editProfile.heroMedia || [])];
+                                  newMedia[idx] = { ...newMedia[idx], type: e.target.value as 'image' | 'video' };
+                                  setEditProfile({...editProfile, heroMedia: newMedia});
+                                }}
+                                className="bg-slate-950 border border-slate-700 text-xs rounded p-2 text-white"
+                              >
+                                <option value="image">Image</option>
+                                <option value="video">Video</option>
+                              </select>
+                              <input 
+                                type="text" 
+                                value={media.url} 
+                                onChange={(e) => {
+                                  const newMedia = [...(editProfile.heroMedia || [])];
+                                  newMedia[idx] = { ...newMedia[idx], url: e.target.value };
+                                  setEditProfile({...editProfile, heroMedia: newMedia});
+                                }}
+                                placeholder="Media URL..." 
+                                className="flex-1 bg-slate-950 border border-slate-700 text-xs rounded p-2 text-white" 
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <button onClick={updateProfile} className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold px-8 py-3 rounded-xl text-sm transition-all shadow-lg shadow-cyan-500/20">
                         Save Profile Changes
                       </button>
                     </div>
@@ -644,34 +945,32 @@ export default function PortfolioApp() {
 
                   {/* TAB 2: SKILLS MANAGER */}
                   {adminTab === 'skills' && (
-                    <div className="space-y-8">
-                      {/* Add New Skill Form */}
-                      <div className="bg-slate-900 p-5 rounded-xl border border-slate-800 space-y-4">
-                        <h4 className="text-xs font-bold text-cyan-400 uppercase">Add New Skill Card</h4>
+                    <div className="space-y-8 max-w-4xl">
+                      <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 space-y-4 shadow-xl">
+                        <h4 className="text-sm font-bold text-cyan-400 uppercase tracking-wider">Add New Skill Card</h4>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          <input type="text" placeholder="Skill Title (e.g. React)" value={newSkill.title} onChange={(e)=>setNewSkill({...newSkill, title: e.target.value})} className="bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white" />
-                          <input type="text" placeholder="Category (e.g. Web Dev)" value={newSkill.category} onChange={(e)=>setNewSkill({...newSkill, category: e.target.value})} className="bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white" />
-                          <input type="text" placeholder="Image Icon URL" value={newSkill.imageUrl} onChange={(e)=>setNewSkill({...newSkill, imageUrl: e.target.value})} className="bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white" />
+                          <input type="text" placeholder="Skill Title (e.g. React)" value={newSkill.title} onChange={(e)=>setNewSkill({...newSkill, title: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                          <input type="text" placeholder="Category (e.g. Web Dev)" value={newSkill.category} onChange={(e)=>setNewSkill({...newSkill, category: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                          <input type="text" placeholder="Image Icon URL" value={newSkill.imageUrl} onChange={(e)=>setNewSkill({...newSkill, imageUrl: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
                         </div>
-                        <textarea placeholder="Detailed description for the modal view..." value={newSkill.description} onChange={(e)=>setNewSkill({...newSkill, description: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white" rows={2} />
-                        <button onClick={addSkill} className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold px-4 py-2 rounded text-xs flex items-center gap-1">
-                          <Plus size={14} /> Add Skill
+                        <textarea placeholder="Detailed description for the popup modal view..." value={newSkill.description} onChange={(e)=>setNewSkill({...newSkill, description: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white resize-none" rows={2} />
+                        <button onClick={addSkill} className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold px-6 py-2.5 rounded-lg text-xs flex items-center gap-1.5 transition-colors">
+                          <Plus size={16} /> Add Skill to Grid
                         </button>
                       </div>
 
-                      {/* Existing Skills List */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {skills.map((s) => (
-                          <div key={s._id} className="flex justify-between items-center bg-slate-900 p-3 rounded-lg border border-slate-800">
+                          <div key={s._id} className="flex justify-between items-center bg-slate-900 p-4 rounded-xl border border-slate-800">
                             <div className="flex items-center gap-3">
-                              <img src={s.imageUrl} alt="" className="w-8 h-8 object-contain bg-slate-800 p-1 rounded" />
+                              <img src={s.imageUrl} alt="" className="w-10 h-10 object-contain bg-slate-800 p-1 rounded-lg" />
                               <div>
                                 <h5 className="text-sm font-bold text-white">{s.title}</h5>
-                                <span className="text-[10px] text-slate-500">{s.category}</span>
+                                <span className="text-[10px] text-slate-400">{s.category} • {s.level}</span>
                               </div>
                             </div>
-                            <button onClick={() => deleteItem('skills', s._id)} className="text-slate-500 hover:text-red-400 p-1">
-                              <Trash2 size={16} />
+                            <button onClick={() => deleteItem('skills', s._id)} className="text-slate-500 hover:text-red-400 p-2 rounded-lg hover:bg-slate-800">
+                              <Trash2 size={18} />
                             </button>
                           </div>
                         ))}
@@ -679,19 +978,21 @@ export default function PortfolioApp() {
                     </div>
                   )}
 
-                  {/* TAB 3: PROJECTS MANAGER */}
+                  {/* TAB 3: PROJECTS MANAGER (With Multiple URL Inputs) */}
                   {adminTab === 'projects' && (
-                    <div className="space-y-8">
-                      <div className="bg-slate-900 p-5 rounded-xl border border-slate-800 space-y-4">
-                        <h4 className="text-xs font-bold text-cyan-400 uppercase">Add New Project</h4>
+                    <div className="space-y-8 max-w-4xl">
+                      <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 space-y-4 shadow-xl">
+                        <h4 className="text-sm font-bold text-cyan-400 uppercase tracking-wider">Add New Project with Multiple Links</h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <input type="text" placeholder="Project Title" value={newProject.title} onChange={(e)=>setNewProject({...newProject, title: e.target.value})} className="bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white" />
-                          <input type="text" placeholder="Image URL" value={newProject.imageUrl} onChange={(e)=>setNewProject({...newProject, imageUrl: e.target.value})} className="bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white" />
-                          <input type="text" placeholder="Live Project URL (Redirect link)" value={newProject.projectUrl} onChange={(e)=>setNewProject({...newProject, projectUrl: e.target.value})} className="bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white" />
-                          <input type="text" placeholder="GitHub Repo URL (optional)" value={newProject.repoUrl} onChange={(e)=>setNewProject({...newProject, repoUrl: e.target.value})} className="bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white" />
+                          <input type="text" placeholder="Project Title" value={newProject.title} onChange={(e)=>setNewProject({...newProject, title: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                          <input type="text" placeholder="Image URL" value={newProject.imageUrl} onChange={(e)=>setNewProject({...newProject, imageUrl: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                          <input type="text" placeholder="Live Project URL (Redirect Link)" value={newProject.projectUrl} onChange={(e)=>setNewProject({...newProject, projectUrl: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                          <input type="text" placeholder="GitHub Repo URL (Code Link)" value={newProject.repoUrl} onChange={(e)=>setNewProject({...newProject, repoUrl: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                          <input type="text" placeholder="Live Demo URL (Optional)" value={newProject.demoUrl} onChange={(e)=>setNewProject({...newProject, demoUrl: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                          <input type="text" placeholder="Documentation URL (Optional)" value={newProject.docsUrl} onChange={(e)=>setNewProject({...newProject, docsUrl: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
                         </div>
-                        <input type="text" placeholder="Technologies (comma separated e.g. React, Node.js)" value={newProject.technologies} onChange={(e)=>setNewProject({...newProject, technologies: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white" />
-                        <textarea placeholder="Project Description..." value={newProject.description} onChange={(e)=>setNewProject({...newProject, description: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white" rows={2} />
+                        <input type="text" placeholder="Technologies (Comma separated e.g. React, Node.js, Next.js)" value={newProject.technologies} onChange={(e)=>setNewProject({...newProject, technologies: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                        <textarea placeholder="Detailed Project Description..." value={newProject.description} onChange={(e)=>setNewProject({...newProject, description: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white resize-none" rows={2} />
                         <button 
                           onClick={async () => {
                             if (!token) return;
@@ -701,24 +1002,28 @@ export default function PortfolioApp() {
                               headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
                               body: JSON.stringify(payload)
                             });
-                            setNewProject({ title: '', description: '', imageUrl: '', projectUrl: '', repoUrl: '', technologies: 'React, Node.js', featured: true, order: 0 });
+                            setNewProject({ title: '', description: '', imageUrl: '', projectUrl: '', repoUrl: '', demoUrl: '', docsUrl: '', technologies: 'React, Node.js', featured: true, order: 0 });
                             fetchPortfolioData();
                           }} 
-                          className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold px-4 py-2 rounded text-xs flex items-center gap-1"
+                          className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold px-6 py-2.5 rounded-lg text-xs flex items-center gap-1.5 transition-colors"
                         >
-                          <Plus size={14} /> Add Project
+                          <Plus size={16} /> Add Project
                         </button>
                       </div>
 
                       <div className="space-y-3">
                         {projects.map((p) => (
-                          <div key={p._id} className="flex justify-between items-center bg-slate-900 p-4 rounded-lg border border-slate-800">
+                          <div key={p._id} className="flex justify-between items-center bg-slate-900 p-4 rounded-xl border border-slate-800">
                             <div>
                               <h5 className="font-bold text-white text-sm">{p.title}</h5>
-                              <a href={p.projectUrl} target="_blank" rel="noreferrer" className="text-xs text-cyan-400 hover:underline">{p.projectUrl}</a>
+                              <div className="flex gap-4 text-[11px] mt-1 text-cyan-400">
+                                {p.projectUrl && <a href={p.projectUrl} target="_blank" rel="noreferrer" className="hover:underline">Live URL</a>}
+                                {p.repoUrl && <a href={p.repoUrl} target="_blank" rel="noreferrer" className="hover:underline">Repo URL</a>}
+                                {p.demoUrl && <a href={p.demoUrl} target="_blank" rel="noreferrer" className="hover:underline">Demo URL</a>}
+                              </div>
                             </div>
-                            <button onClick={() => deleteItem('projects', p._id)} className="text-slate-500 hover:text-red-400 p-1">
-                              <Trash2 size={16} />
+                            <button onClick={() => deleteItem('projects', p._id)} className="text-slate-500 hover:text-red-400 p-2 rounded-lg hover:bg-slate-800">
+                              <Trash2 size={18} />
                             </button>
                           </div>
                         ))}
@@ -728,19 +1033,19 @@ export default function PortfolioApp() {
 
                   {/* TAB 4: EDUCATION & CERTS MANAGER */}
                   {adminTab === 'education' && (
-                    <div className="space-y-8">
-                      <div className="bg-slate-900 p-5 rounded-xl border border-slate-800 space-y-4">
-                        <h4 className="text-xs font-bold text-cyan-400 uppercase">Add Education / Certification</h4>
+                    <div className="space-y-8 max-w-4xl">
+                      <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 space-y-4 shadow-xl">
+                        <h4 className="text-sm font-bold text-cyan-400 uppercase tracking-wider">Add Education / Certification Record</h4>
                         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                          <select value={newEdu.type} onChange={(e)=>setNewEdu({...newEdu, type: e.target.value as 'Education' | 'Certification'})} className="bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white">
+                          <select value={newEdu.type} onChange={(e)=>setNewEdu({...newEdu, type: e.target.value as 'Education' | 'Certification'})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white">
                             <option value="Education">Education</option>
                             <option value="Certification">Certification</option>
                           </select>
-                          <input type="text" placeholder="Title (Degree or Cert Name)" value={newEdu.title} onChange={(e)=>setNewEdu({...newEdu, title: e.target.value})} className="bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white" />
-                          <input type="text" placeholder="Institution / Issuer" value={newEdu.institution} onChange={(e)=>setNewEdu({...newEdu, institution: e.target.value})} className="bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white" />
-                          <input type="text" placeholder="Year (e.g. 2020 - 2024)" value={newEdu.year} onChange={(e)=>setNewEdu({...newEdu, year: e.target.value})} className="bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white" />
+                          <input type="text" placeholder="Title (Degree or Cert Name)" value={newEdu.title} onChange={(e)=>setNewEdu({...newEdu, title: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                          <input type="text" placeholder="Institution / Issuer" value={newEdu.institution} onChange={(e)=>setNewEdu({...newEdu, institution: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                          <input type="text" placeholder="Year (e.g. 2020 - 2024)" value={newEdu.year} onChange={(e)=>setNewEdu({...newEdu, year: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
                         </div>
-                        <input type="text" placeholder="Certificate Verification URL (Optional)" value={newEdu.certificateUrl} onChange={(e)=>setNewEdu({...newEdu, certificateUrl: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-xs text-white" />
+                        <input type="text" placeholder="Certificate Verification URL (Optional)" value={newEdu.certificateUrl} onChange={(e)=>setNewEdu({...newEdu, certificateUrl: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
                         <button 
                           onClick={async () => {
                             if (!token) return;
@@ -752,22 +1057,22 @@ export default function PortfolioApp() {
                             setNewEdu({ title: '', institution: '', year: '', description: '', type: 'Education', certificateUrl: '' });
                             fetchPortfolioData();
                           }} 
-                          className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold px-4 py-2 rounded text-xs flex items-center gap-1"
+                          className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold px-6 py-2.5 rounded-lg text-xs flex items-center gap-1.5 transition-colors"
                         >
-                          <Plus size={14} /> Add Record
+                          <Plus size={16} /> Add Record
                         </button>
                       </div>
 
                       <div className="space-y-3">
                         {[...education, ...certifications].map((item) => (
-                          <div key={item._id} className="flex justify-between items-center bg-slate-900 p-3 rounded-lg border border-slate-800">
+                          <div key={item._id} className="flex justify-between items-center bg-slate-900 p-4 rounded-xl border border-slate-800">
                             <div>
-                              <span className="text-[10px] uppercase font-bold text-cyan-400 mr-2">[{item.type}]</span>
+                              <span className="text-[10px] uppercase font-bold text-cyan-400 mr-2 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">[{item.type}]</span>
                               <span className="font-bold text-white text-sm">{item.title}</span>
-                              <span className="text-xs text-slate-500 ml-2">— {item.institution} ({item.year})</span>
+                              <span className="text-xs text-slate-400 ml-2">— {item.institution} ({item.year})</span>
                             </div>
-                            <button onClick={() => deleteItem('education', item._id)} className="text-slate-500 hover:text-red-400 p-1">
-                              <Trash2 size={16} />
+                            <button onClick={() => deleteItem('education', item._id)} className="text-slate-500 hover:text-red-400 p-2 rounded-lg hover:bg-slate-800">
+                              <Trash2 size={18} />
                             </button>
                           </div>
                         ))}
@@ -775,41 +1080,46 @@ export default function PortfolioApp() {
                     </div>
                   )}
 
-                  {/* TAB 5: CONTACT MESSAGES INBOX */}
+                  {/* TAB 5: MESSAGES INBOX */}
                   {adminTab === 'messages' && (
-                    <div className="space-y-3">
+                    <div className="space-y-4 max-w-4xl">
                       {(!messages || messages.length === 0) ? (
-                        <p className="text-center text-slate-500 py-12 text-sm">No contact messages received yet.</p>
+                        <div className="text-center py-16 bg-slate-900/50 rounded-2xl border border-slate-800">
+                          <MessageSquare size={32} className="mx-auto text-slate-600 mb-2" />
+                          <p className="text-slate-500 text-sm">No contact messages received yet.</p>
+                        </div>
                       ) : (
                         messages.map((m) => (
-                          <div key={m._id} className="bg-slate-900 border border-slate-800 p-4 rounded-xl flex justify-between items-start gap-4">
-                            <div className="space-y-1">
-                              <div className="flex items-center gap-2">
-                                <h5 className="font-bold text-white text-sm">{m.senderName}</h5>
-                                <a href={`mailto:${m.email}`} className="text-xs text-cyan-400 hover:underline">&lt;{m.email}&gt;</a>
-                                <span className="text-[10px] text-slate-500">{new Date(m.createdAt).toLocaleDateString()}</span>
+                          <div key={m._id} className="bg-slate-900 border border-slate-800 p-5 rounded-2xl flex justify-between items-start gap-4">
+                            <div className="space-y-1.5 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h5 className="font-bold text-white text-base">{m.senderName}</h5>
+                                <a href={`mailto:${m.email}`} className="text-xs text-cyan-400 hover:underline bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">{m.email}</a>
+                                <span className="text-[11px] text-slate-500 ml-auto">{new Date(m.createdAt).toLocaleDateString()}</span>
                               </div>
                               <p className="text-xs font-semibold text-slate-300">Subject: {m.subject}</p>
-                              <p className="text-xs text-slate-400 bg-slate-950 p-3 rounded border border-slate-800/80 mt-2 whitespace-pre-wrap">{m.message}</p>
+                              <p className="text-sm text-slate-300 bg-slate-950 p-4 rounded-xl border border-slate-800/80 mt-3 whitespace-pre-wrap leading-relaxed">{m.message}</p>
                             </div>
-                            <button onClick={() => deleteItem('messages', m._id)} className="text-slate-500 hover:text-red-400 p-1 shrink-0">
-                              <Trash2 size={16} />
+                            <button onClick={() => deleteItem('messages', m._id)} className="text-slate-500 hover:text-red-400 p-2 rounded-lg hover:bg-slate-800 shrink-0">
+                              <Trash2 size={18} />
                             </button>
                           </div>
                         ))
                       )}
                     </div>
                   )}
-                </div>
-              )}
-            </div>
 
-            {/* Modal Footer */}
+                </div>
+              </div>
+            )}
+
+            {/* Modal Bottom Bar */}
             <div className="px-6 py-3 bg-slate-900 border-t border-slate-800 text-right shrink-0">
-              <button onClick={() => setIsAdminOpen(false)} className="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs font-semibold">
-                Close Panel
+              <button onClick={() => setIsAdminOpen(false)} className="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-semibold transition-colors">
+                Close Control Panel
               </button>
             </div>
+
           </div>
         </div>
       )}
