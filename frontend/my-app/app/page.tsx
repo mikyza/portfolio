@@ -8,7 +8,7 @@ import {
   ArrowLeft, CheckCircle2, AlertCircle
 } from 'lucide-react';
 
-// --- INLINE BRAND SVG ICONS (Lucide removed brand icons in recent versions) ---
+// --- INLINE BRAND SVG ICONS (Guarantees zero build errors) ---
 const GithubIcon = ({ size = 14, className = "" }: { size?: number; className?: string }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
     <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" />
@@ -55,13 +55,48 @@ interface Project {
 interface Education { _id: string; title: string; institution: string; year: string; description?: string; type: 'Education' | 'Certification'; certificateUrl?: string; }
 interface Message { _id: string; senderName: string; email: string; subject: string; message: string; createdAt: string; }
 
+// --- DEFAULT INITIAL DATA (Ensures frontend is fully populated out of the box) ---
+const DEFAULT_SKILLS: Skill[] = [
+  { _id: 's1', title: 'React', category: 'Frontend', level: 'Expert', order: 1, imageUrl: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg', description: 'Building highly interactive, component-based user interfaces with state management and custom hooks.' },
+  { _id: 's2', title: 'Next.js', category: 'Frontend / Fullstack', level: 'Expert', order: 2, imageUrl: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/nextjs/nextjs-original.svg', description: 'Server-side rendering, static site generation, app router architecture, and full-stack API integration.' },
+  { _id: 's3', title: 'TypeScript', category: 'Languages', level: 'Advanced', order: 3, imageUrl: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/typescript/typescript-original.svg', description: 'Writing type-safe, scalable, and self-documenting code to minimize runtime errors in large production web apps.' },
+  { _id: 's4', title: 'Node.js', category: 'Backend', level: 'Expert', order: 4, imageUrl: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/nodejs/nodejs-original.svg', description: 'Developing high-performance asynchronous event-driven server engines, microservices, and background workers.' },
+  { _id: 's5', title: 'Tailwind CSS', category: 'UI / UX Design', level: 'Expert', order: 5, imageUrl: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/tailwindcss/tailwindcss-original.svg', description: 'Crafting modern, responsive, and accessible layouts rapidly using utility-first CSS design principles.' },
+  { _id: 's6', title: 'Express.js', category: 'Backend', level: 'Advanced', order: 6, imageUrl: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/express/express-original.svg', description: 'Designing robust RESTful APIs, custom middleware pipelines, authentication systems, and server routing.' },
+  { _id: 's7', title: 'MongoDB', category: 'Database', level: 'Advanced', order: 7, imageUrl: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/mongodb/mongodb-original.svg', description: 'Architecting NoSQL document schemas, aggregation pipelines, and indexing for high-speed data retrieval.' },
+  { _id: 's8', title: 'MySQL / MariaDB', category: 'Database', level: 'Advanced', order: 8, imageUrl: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/mysql/mysql-original.svg', description: 'Relational database modeling, complex SQL queries, transaction ACID compliance, and schema optimization.' },
+  { _id: 's9', title: 'JavaScript (ES6+)', category: 'Languages', level: 'Expert', order: 9, imageUrl: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/javascript/javascript-original.svg', description: 'Deep understanding of DOM manipulation, asynchronous programming (Promises/Async-Await), and closures.' },
+  { _id: 's10', title: 'Linux / Ubuntu', category: 'DevOps & OS', level: 'Advanced', order: 10, imageUrl: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/linux/linux-original.svg', description: 'Server administration, bash scripting, permission management, and local command-line development environments.' },
+  { _id: 's11', title: 'Git & GitHub', category: 'Version Control', level: 'Expert', order: 11, imageUrl: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/git/git-original.svg', description: 'Branching strategies, CI/CD workflow automation, pull request code reviews, and distributed team collaboration.' },
+  { _id: 's12', title: 'Socket.io / WebSockets', category: 'Real-Time Tech', level: 'Advanced', order: 12, imageUrl: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/socketio/socketio-original.svg', description: 'Implementing bi-directional real-time communication for live chat, gaming platforms, and live telemetry dashboards.' },
+  { _id: 's13', title: 'Docker', category: 'DevOps', level: 'Intermediate', order: 13, imageUrl: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/docker/docker-original.svg', description: 'Containerizing full-stack applications to ensure consistent deployment across staging and production servers.' },
+  { _id: 's14', title: 'REST & GraphQL APIs', category: 'Backend Architecture', level: 'Advanced', order: 14, imageUrl: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/graphql/graphql-plain.svg', description: 'Building secure, scalable API endpoints with JSON Web Tokens (JWT), OAuth2, and rate-limiting.' },
+  { _id: 's15', title: 'UI / UX Design (Figma)', category: 'Design', level: 'Advanced', order: 15, imageUrl: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/figma/figma-original.svg', description: 'Wireframing user flows, interactive prototyping, and bridging aesthetic design with responsive frontend code.' },
+  { _id: 's16', title: 'Payment Gateways (M-Pesa)', category: 'FinTech Integration', level: 'Expert', order: 16, imageUrl: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/postman/postman-original.svg', description: 'Integrating M-Pesa STK push, automated callbacks, and Till/Paybill reconciliation APIs for seamless e-commerce checkout.' }
+];
+
+const DEFAULT_PROJECTS: Project[] = [
+  { _id: 'p1', title: 'AgriCommerce Supply Chain Hub', description: 'A comprehensive agricultural e-commerce platform connecting farmers directly to buyers. Features an integrated admin dashboard, inventory tracking, and mobile payment processing.', imageUrl: 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=600&auto=format&fit=crop&q=80', projectUrl: '#', repoUrl: '#', demoUrl: '#', technologies: ['Next.js', 'Node.js', 'MongoDB', 'Tailwind CSS', 'M-Pesa API'], featured: true, order: 1 },
+  { _id: 'p2', title: 'Real-Time Multiplayer Crash Game', description: 'A high-concurrency multiplayer betting game clone engineered with WebSockets. Delivers sub-second event synchronization, live chat, and automated round payouts.', imageUrl: 'https://images.unsplash.com/photo-1511512578047-dfb367046420?w=600&auto=format&fit=crop&q=80', projectUrl: '#', repoUrl: '#', demoUrl: '#', technologies: ['React', 'Socket.io', 'Express', 'Node.js', 'MariaDB'], featured: true, order: 2 },
+  { _id: 'p3', title: 'Network Radar & Signal Monitor', description: 'A network diagnostic application that logs Wi-Fi signal metrics, tracks latency, and displays visual radar charts to optimize connection stability.', imageUrl: 'https://images.unsplash.com/photo-1544197150-b99a580bb7a8?w=600&auto=format&fit=crop&q=80', projectUrl: '#', repoUrl: '#', demoUrl: '#', technologies: ['Node.js', 'Socket.io', 'Chart.js', 'HTML5/CSS3', 'Linux'], featured: true, order: 3 },
+  { _id: 'p4', title: 'FinTech Mobile Payment Gateway API', description: 'A secure microservice facilitating M-Pesa STK Push and Till number transactions with automated reconciliation, instant webhooks, and SMS receipt dispatch.', imageUrl: 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=600&auto=format&fit=crop&q=80', projectUrl: '#', repoUrl: '#', demoUrl: '#', technologies: ['TypeScript', 'Express', 'MongoDB', 'REST API', 'Docker'], featured: true, order: 4 },
+  { _id: 'p5', title: 'Enterprise Cloud CMS & Admin Portal', description: 'A custom content management system with role-based access control (RBAC), media upload pipelines, and dynamic page builder capabilities.', imageUrl: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=600&auto=format&fit=crop&q=80', projectUrl: '#', repoUrl: '#', demoUrl: '#', technologies: ['Next.js', 'React', 'Tailwind CSS', 'Node.js', 'MySQL'], featured: true, order: 5 },
+  { _id: 'p6', title: 'AI-Powered Documentation Assistant', description: 'An intelligent documentation browser utilizing large language models to index technical codebases and provide instant conversational developer answers.', imageUrl: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=600&auto=format&fit=crop&q=80', projectUrl: '#', repoUrl: '#', demoUrl: '#', technologies: ['React', 'TypeScript', 'OpenAI API', 'Tailwind CSS', 'Node.js'], featured: true, order: 6 },
+  { _id: 'p7', title: 'Real-Time Collaborative Code Editor', description: 'A browser-based IDE supporting live syntax highlighting, multi-cursor tracking, and instant code execution for remote technical interviews.', imageUrl: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=600&auto=format&fit=crop&q=80', projectUrl: '#', repoUrl: '#', demoUrl: '#', technologies: ['React', 'Monaco Editor', 'WebSockets', 'Express', 'Docker'], featured: true, order: 7 },
+  { _id: 'p8', title: 'Logistics & Fleet Dispatch Tracker', description: 'A GPS mapping terminal designed for delivery fleet management. Offers live driver route plotting, automated status notifications, and fuel usage analytics.', imageUrl: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=600&auto=format&fit=crop&q=80', projectUrl: '#', repoUrl: '#', demoUrl: '#', technologies: ['Next.js', 'Leaflet Maps', 'Node.js', 'MongoDB', 'Tailwind CSS'], featured: true, order: 8 },
+  { _id: 'p9', title: 'Distributed Task Queue & Job Scheduler', description: 'A backend architecture tool for managing heavy background processing, email queueing, and automated backups with failure retry mechanisms.', imageUrl: 'https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=600&auto=format&fit=crop&q=80', projectUrl: '#', repoUrl: '#', demoUrl: '#', technologies: ['Node.js', 'Redis', 'BullMQ', 'TypeScript', 'Linux/Debian'], featured: true, order: 9 },
+  { _id: 'p10', title: 'Hospitality Booking & Reservation Engine', description: 'A seamless hotel reservation application featuring dynamic seasonal pricing, calendar synchronization, and automated customer SMS alerts.', imageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=600&auto=format&fit=crop&q=80', projectUrl: '#', repoUrl: '#', demoUrl: '#', technologies: ['React', 'Next.js', 'MySQL', 'Tailwind CSS', 'Stripe/M-Pesa'], featured: true, order: 10 },
+  { _id: 'p11', title: 'DevOps CI/CD Pipeline Visualizer', description: 'A developer dashboard that listens to GitHub webhooks, tracks server build statuses, and alerts engineering teams via Discord and email on deployment failure.', imageUrl: 'https://images.unsplash.com/photo-1618401471353-b98aedd04e11?w=600&auto=format&fit=crop&q=80', projectUrl: '#', repoUrl: '#', demoUrl: '#', technologies: ['React', 'Node.js', 'GitHub API', 'Webhooks', 'Ubuntu'], featured: true, order: 11 },
+  { _id: 'p12', title: 'Interactive Crypto & Stock Charting Terminal', description: 'A financial analytical dashboard pulling live WebSocket market feeds. Features customizable technical indicator overlays and automated portfolio value tracking.', imageUrl: 'https://images.unsplash.com/photo-1642543492481-44e81e3914a7?w=600&auto=format&fit=crop&q=80', projectUrl: '#', repoUrl: '#', demoUrl: '#', technologies: ['React', 'TradingView API', 'Socket.io', 'Tailwind CSS', 'Express'], featured: true, order: 12 }
+];
+
 export default function PortfolioApp() {
   // --- STATE MANAGEMENT ---
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [profile, setProfile] = useState<Profile>({
     name: 'Michael',
     profession: 'Full-Stack Software Developer, UI/UX Designer, Database Architect',
-    about: 'Passionate software engineer building responsive, high-performance web applications and seamless digital experiences.',
+    about: 'I am a dedicated Full-Stack Software Engineer and UI/UX Designer specializing in building scalable web applications, robust RESTful APIs, and intuitive digital experiences. With deep expertise across modern JavaScript/TypeScript ecosystems (React, Next.js, Node.js), relational and NoSQL databases, and cloud deployments on Linux environments, I bridge the gap between elegant frontend interfaces and high-concurrency backend architectures. Dedicated to clean code, performance optimization, and solving complex real-world software challenges.',
     profilePicUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&auto=format&fit=crop&q=80',
     whatsappNumber: '254746323229',
     githubUsername: 'michael',
@@ -69,10 +104,15 @@ export default function PortfolioApp() {
     heroMedia: []
   });
   
-  const [skills, setSkills] = useState<Skill[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [education, setEducation] = useState<Education[]>([]);
-  const [certifications, setCertifications] = useState<Education[]>([]);
+  const [skills, setSkills] = useState<Skill[]>(DEFAULT_SKILLS);
+  const [projects, setProjects] = useState<Project[]>(DEFAULT_PROJECTS);
+  const [education, setEducation] = useState<Education[]>([
+    { _id: 'e1', title: 'B.Sc. in Computer Science / Software Engineering', institution: 'University of Technology', year: '2021 - Present', description: 'Specialized in Software Architecture, Distributed Systems, Database Management Systems, and Algorithm Design.', type: 'Education' }
+  ]);
+  const [certifications, setCertifications] = useState<Education[]>([
+    { _id: 'c1', title: 'Full-Stack Web Development Professional', institution: 'Accredited Tech Institute', year: '2024', description: 'Advanced training in React, Next.js, Node.js microservices, and Cloud Deployment.', type: 'Certification', certificateUrl: '#' },
+    { _id: 'c2', title: 'Linux Server Administration & DevOps', institution: 'Linux Foundation Training', year: '2023', description: 'Server security, bash scripting, containerization, and network troubleshooting.', type: 'Certification', certificateUrl: '#' }
+  ]);
   
   // UI & Interaction States
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
@@ -118,17 +158,18 @@ export default function PortfolioApp() {
       const res = await fetch(`${API_BASE}/portfolio`);
       if (res.ok) {
         const data = await res.json();
-        if (data.profile) {
+        if (data.profile && data.profile.name) {
           setProfile(data.profile);
           setEditProfile(data.profile);
         }
-        setSkills(Array.isArray(data.skills) ? data.skills : []);
-        setProjects(Array.isArray(data.projects) ? data.projects : []);
-        setEducation(Array.isArray(data.education) ? data.education : []);
-        setCertifications(Array.isArray(data.certifications) ? data.certifications : []);
+        // Only overwrite default arrays if the database actually returns saved items
+        if (Array.isArray(data.skills) && data.skills.length > 0) setSkills(data.skills);
+        if (Array.isArray(data.projects) && data.projects.length > 0) setProjects(data.projects);
+        if (Array.isArray(data.education) && data.education.length > 0) setEducation(data.education);
+        if (Array.isArray(data.certifications) && data.certifications.length > 0) setCertifications(data.certifications);
       }
     } catch (err) {
-      console.error("Using fallback state; could not connect to backend server:", err);
+      console.log("Using robust default frontend state; backend API not currently connected.");
     }
   };
 
@@ -268,7 +309,7 @@ export default function PortfolioApp() {
     if (endpoint === 'messages') fetchMessages(token);
   };
 
-  // --- VIEW LIMITS FOR TWO ROWS ONLY ---
+  // --- VIEW LIMITS FOR INITIAL LANDING PAGE ---
   const displayedSkills = skills.slice(0, 8);
   const displayedProjects = projects.slice(0, 8);
 
@@ -313,12 +354,13 @@ export default function PortfolioApp() {
             {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
           </button>
 
+          {/* STEALTH HIDDEN ADMIN DOT BUTTON (Replacing the old lock button) */}
           <button 
             onClick={() => { setIsAdminOpen(true); if(token) fetchMessages(token); }}
-            className={`flex items-center gap-2 border text-xs font-semibold px-3 py-1.5 rounded-full transition-all shadow-sm ${isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-300 hover:border-cyan-500 hover:text-white' : 'bg-slate-100 border-slate-300 text-slate-700 hover:border-cyan-500 hover:text-black'}`}
-          >
-            <Lock size={14} className="text-cyan-400" /> Admin
-          </button>
+            className="w-2 h-2 rounded-full bg-cyan-500/40 hover:bg-cyan-400 hover:scale-150 transition-all cursor-pointer shadow-sm"
+            title="."
+            aria-label="Admin Control Panel"
+          />
         </div>
       </nav>
 
@@ -406,7 +448,7 @@ export default function PortfolioApp() {
       <section id="skills" className={`py-24 px-6 max-w-7xl mx-auto border-t ${borderCol}`}>
         <div className="text-center mb-16">
           <h2 className="text-3xl md:text-5xl font-bold tracking-tight">Technical <span className="text-cyan-400">Skills</span></h2>
-          <p className={`${textMuted} mt-3`}>Click on any card to view detailed proficiency and expertise.</p>
+          <p className={`${textMuted} mt-3`}>Click on any card to view detailed proficiency and architecture expertise.</p>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -466,7 +508,7 @@ export default function PortfolioApp() {
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-5xl font-bold tracking-tight">Featured <span className="text-cyan-400">Projects</span></h2>
-            <p className={`${textMuted} mt-3`}>Explore my latest applications, architectures, and deployments.</p>
+            <p className={`${textMuted} mt-3`}>Explore my latest full-stack applications, architectures, and API deployments.</p>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -852,7 +894,7 @@ export default function PortfolioApp() {
 
                       <div>
                         <label className="text-xs text-slate-400 font-semibold">About Bio</label>
-                        <textarea rows={3} value={editProfile.about} onChange={(e) => setEditProfile({...editProfile, about: e.target.value})} className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" />
+                        <textarea rows={4} value={editProfile.about} onChange={(e) => setEditProfile({...editProfile, about: e.target.value})} className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" />
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-800">
