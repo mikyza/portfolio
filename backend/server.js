@@ -15,11 +15,11 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-// Checks for both MONGO_URI and MONGODB_URI from your .env file[cite: 3]
+// Checks for both MONGO_URI and MONGODB_URI from your .env file
 const MONGODB_URI = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://localhost:27017/portfolio_db';
 const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_admin_key_change_in_production';
 
-// Middleware[cite: 3]
+// Middleware
 app.use(cors());
 app.use(express.json());
 
@@ -27,14 +27,14 @@ app.use(express.json());
    1. MONGOOSE SCHEMAS & MODELS
 ========================================== */
 
-// Admin User Schema[cite: 3]
+// Admin User Schema
 const adminSchema = new mongoose.Schema({
   username: { type: String, required: true, unique: true },
   password: { type: String, required: true }
 });
 const Admin = mongoose.model('Admin', adminSchema);
 
-// Profile & Landing Page Schema (profilePic alongside Hero Media, Name, Profession)[cite: 3]
+// Profile & Landing Page Schema (profilePic alongside Hero Media, Name, Profession, and CV)
 const profileSchema = new mongoose.Schema({
   name: { type: String, default: 'Michael' },
   profession: { type: String, default: 'Full-Stack Software Developer' },
@@ -42,6 +42,10 @@ const profileSchema = new mongoose.Schema({
   profilePic: { 
     type: String, 
     default: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80' 
+  },
+  cvUrl: { 
+    type: String, 
+    default: '' // Stores the destination URL for your CV download
   },
   heroMedia: [
     {
@@ -54,7 +58,7 @@ const profileSchema = new mongoose.Schema({
 });
 const Profile = mongoose.model('Profile', profileSchema);
 
-// Skills Schema (Clickable divs with pictures and detailed info)[cite: 3]
+// Skills Schema (Clickable divs with pictures and detailed info)
 const skillSchema = new mongoose.Schema({
   title: { type: String, required: true },
   category: { type: String, default: 'Web Development' },
@@ -65,7 +69,7 @@ const skillSchema = new mongoose.Schema({
 });
 const Skill = mongoose.model('Skill', skillSchema);
 
-// Projects Schema (Clickable cards redirecting to live project/repo)[cite: 3]
+// Projects Schema (Clickable cards redirecting to live project/repo)
 const projectSchema = new mongoose.Schema({
   title: { type: String, required: true },
   description: { type: String, required: true },
@@ -78,7 +82,7 @@ const projectSchema = new mongoose.Schema({
 });
 const Project = mongoose.model('Project', projectSchema);
 
-// Education & Certifications Schema[cite: 3]
+// Education & Certifications Schema
 const educationSchema = new mongoose.Schema({
   title: { type: String, required: true },
   institution: { type: String, required: true },
@@ -89,7 +93,7 @@ const educationSchema = new mongoose.Schema({
 });
 const Education = mongoose.model('Education', educationSchema);
 
-// Contact Messages Schema[cite: 3]
+// Contact Messages Schema
 const messageSchema = new mongoose.Schema({
   senderName: { type: String, required: true },
   email: { type: String, required: true },
@@ -125,7 +129,7 @@ const authenticateAdmin = (req, res, next) => {
    3. PUBLIC API ROUTES (For Frontend)
 ========================================== */
 
-// Fetch EVERYTHING in one request for fast landing page rendering[cite: 3]
+// Fetch EVERYTHING in one request for fast landing page rendering
 app.get('/api/portfolio', async (req, res) => {
   try {
     const profile = await Profile.findOne() || {};
@@ -146,7 +150,21 @@ app.get('/api/portfolio', async (req, res) => {
   }
 });
 
-// Submit Contact Form[cite: 3]
+// Dedicated CV Download / Redirect Route
+app.get(['/api/cv/download', '/api/portfolio/cv'], async (req, res) => {
+  try {
+    const profile = await Profile.findOne();
+    if (!profile || !profile.cvUrl) {
+      return res.status(404).json({ error: 'CV not found or destination URL has not been configured yet.' });
+    }
+    // Redirects the client directly to the hosted CV destination
+    res.redirect(profile.cvUrl);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch CV destination', details: err.message });
+  }
+});
+
+// Submit Contact Form
 app.post('/api/contact', async (req, res) => {
   try {
     const { senderName, email, subject, message } = req.body;
@@ -184,7 +202,7 @@ app.post('/api/auth/login', async (req, res) => {
    5. PROTECTED ADMIN CRUD ROUTES (Full Add, Edit, Delete)
 ========================================== */
 
-// --- Profile & Landing Page Media Control ---[cite: 3]
+// --- Profile & Landing Page Media Control ---
 app.get('/api/admin/profile', authenticateAdmin, async (req, res) => {
   try {
     const profile = await Profile.findOne() || {};
@@ -194,10 +212,20 @@ app.get('/api/admin/profile', authenticateAdmin, async (req, res) => {
 
 app.put('/api/admin/profile', authenticateAdmin, async (req, res) => {
   try {
-    const { name, profession, about, profilePic, heroMedia } = req.body;
+    const updateFields = { ...req.body, updatedAt: Date.now() };
+
+    // Support multiple common naming conventions from the frontend for profile image
+    if (req.body.profileImage || req.body.avatarUrl || req.body.imageUrl) {
+      updateFields.profilePic = req.body.profileImage || req.body.avatarUrl || req.body.imageUrl;
+    }
+    // Support multiple naming conventions for CV update
+    if (req.body.resumeUrl || req.body.cv) {
+      updateFields.cvUrl = req.body.resumeUrl || req.body.cv;
+    }
+
     const updatedProfile = await Profile.findOneAndUpdate(
       {},
-      { name, profession, about, profilePic, heroMedia, updatedAt: Date.now() },
+      { $set: updateFields },
       { new: true, upsert: true }
     );
     res.json(updatedProfile);
@@ -206,11 +234,19 @@ app.put('/api/admin/profile', authenticateAdmin, async (req, res) => {
   }
 });
 
-// --- Skills Control ---[cite: 3]
+// --- Skills Control ---
 app.get('/api/admin/skills', authenticateAdmin, async (req, res) => {
   try {
     const skills = await Skill.find().sort({ order: 1 });
     res.json(skills);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/admin/skills/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const skill = await Skill.findById(req.params.id);
+    if (!skill) return res.status(404).json({ error: 'Skill not found' });
+    res.json(skill);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -224,7 +260,7 @@ app.post('/api/admin/skills', authenticateAdmin, async (req, res) => {
 
 app.put('/api/admin/skills/:id', authenticateAdmin, async (req, res) => {
   try {
-    const skill = await Skill.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const skill = await Skill.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true, runValidators: true });
     res.json(skill);
   } catch (err) { res.status(400).json({ error: err.message }); }
 });
@@ -236,11 +272,19 @@ app.delete('/api/admin/skills/:id', authenticateAdmin, async (req, res) => {
   } catch (err) { res.status(400).json({ error: err.message }); }
 });
 
-// --- Projects Control ---[cite: 3]
+// --- Projects Control ---
 app.get('/api/admin/projects', authenticateAdmin, async (req, res) => {
   try {
     const projects = await Project.find().sort({ order: 1 });
     res.json(projects);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/admin/projects/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const project = await Project.findById(req.params.id);
+    if (!project) return res.status(404).json({ error: 'Project not found' });
+    res.json(project);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -254,7 +298,7 @@ app.post('/api/admin/projects', authenticateAdmin, async (req, res) => {
 
 app.put('/api/admin/projects/:id', authenticateAdmin, async (req, res) => {
   try {
-    const project = await Project.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const project = await Project.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true, runValidators: true });
     res.json(project);
   } catch (err) { res.status(400).json({ error: err.message }); }
 });
@@ -266,10 +310,18 @@ app.delete('/api/admin/projects/:id', authenticateAdmin, async (req, res) => {
   } catch (err) { res.status(400).json({ error: err.message }); }
 });
 
-// --- Education & Certifications Control ---[cite: 3]
+// --- Education & Certifications Control ---
 app.get('/api/admin/education', authenticateAdmin, async (req, res) => {
   try {
     const edu = await Education.find();
+    res.json(edu);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/admin/education/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const edu = await Education.findById(req.params.id);
+    if (!edu) return res.status(404).json({ error: 'Record not found' });
     res.json(edu);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -284,7 +336,7 @@ app.post('/api/admin/education', authenticateAdmin, async (req, res) => {
 
 app.put('/api/admin/education/:id', authenticateAdmin, async (req, res) => {
   try {
-    const edu = await Education.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const edu = await Education.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true, runValidators: true });
     res.json(edu);
   } catch (err) { res.status(400).json({ error: err.message }); }
 });
@@ -296,7 +348,7 @@ app.delete('/api/admin/education/:id', authenticateAdmin, async (req, res) => {
   } catch (err) { res.status(400).json({ error: err.message }); }
 });
 
-// --- Contact Messages Control ---[cite: 3]
+// --- Contact Messages Control ---
 app.get('/api/admin/messages', authenticateAdmin, async (req, res) => {
   try {
     const messages = await Message.find().sort({ createdAt: -1 });
@@ -304,9 +356,17 @@ app.get('/api/admin/messages', authenticateAdmin, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+app.get('/api/admin/messages/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const message = await Message.findById(req.params.id);
+    if (!message) return res.status(404).json({ error: 'Message not found' });
+    res.json(message);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 app.put('/api/admin/messages/:id', authenticateAdmin, async (req, res) => {
   try {
-    const message = await Message.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const message = await Message.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true });
     res.json(message);
   } catch (err) { res.status(400).json({ error: err.message }); }
 });
@@ -323,7 +383,7 @@ app.delete('/api/admin/messages/:id', authenticateAdmin, async (req, res) => {
    6. CLOUD-OPTIMIZED DATABASE CONNECTION & SEEDING
 ========================================== */
 
-// Background connection listeners to prevent server crashes on network drops[cite: 3]
+// Background connection listeners to prevent server crashes on network drops
 mongoose.connection.on('connected', () => {
   console.log('✅ Successfully connected to MongoDB Atlas Cloud!');
 });
@@ -340,14 +400,14 @@ const initializeDatabase = async () => {
   try {
     console.log('⏳ Connecting to MongoDB Atlas...');
     
-    // Cloud-optimized connection parameters[cite: 3]
+    // Cloud-optimized connection parameters
     await mongoose.connect(MONGODB_URI, {
       serverSelectionTimeoutMS: 10000, // Timeout after 10s instead of hanging indefinitely
       socketTimeoutMS: 45000,          // Close inactive sockets cleanly
       maxPoolSize: 10                  // Maintain stable cloud connection pool
     });
 
-    // 1. Seed Default Admin if none exists[cite: 3]
+    // 1. Seed Default Admin if none exists
     const adminExists = await Admin.findOne();
     if (!adminExists) {
       const hashedPassword = await bcrypt.hash('0746323229', 10);
@@ -355,7 +415,7 @@ const initializeDatabase = async () => {
       console.log('✨ Default admin created -> Username: [admin] | Password: [0746323229]');
     }
 
-    // 2. Seed Default Profile with profilePic + 3 images + 1 video if none exists[cite: 3]
+    // 2. Seed Default Profile with profilePic, cvUrl, 3 images + 1 video if none exists
     const profileExists = await Profile.findOne();
     if (!profileExists) {
       await Profile.create({
@@ -363,6 +423,7 @@ const initializeDatabase = async () => {
         profession: 'Full-Stack Software Developer',
         about: 'Building dynamic, responsive UI/UX web applications.',
         profilePic: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80',
+        cvUrl: '', // Add your CV link via the admin panel
         heroMedia: [
           { url: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97', type: 'image', order: 1 },
           { url: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c', type: 'image', order: 2 },
@@ -370,7 +431,7 @@ const initializeDatabase = async () => {
           { url: 'https://www.w3schools.com/html/mov_bbb.mp4', type: 'video', order: 4 }
         ]
       });
-      console.log('✨ Default profile, profile pic, and hero media seeded.');
+      console.log('✨ Default profile, profile pic, CV link, and hero media seeded.');
     }
   } catch (err) {
     console.error('❌ Initial MongoDB cloud connection failed.');
@@ -381,7 +442,7 @@ const initializeDatabase = async () => {
 
 initializeDatabase();
 
-// Start Server bound to 0.0.0.0 so external devices on your Wi-Fi can connect[cite: 3]
+// Start Server bound to 0.0.0.0 so external devices on your Wi-Fi can connect
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Portfolio Backend running locally on http://localhost:${PORT}`);
   console.log(`🌐 Accessible on your LAN via http://192.168.100.13:${PORT}`);
