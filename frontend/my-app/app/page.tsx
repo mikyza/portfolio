@@ -5,7 +5,7 @@ import {
   GraduationCap, Award, ExternalLink, Lock, LogOut, Plus, Trash2, X, 
   ShieldAlert, Sun, Moon, Download, Mail, Send, 
   LayoutGrid, User, Code, Briefcase, MessageSquare, Globe, ChevronRight, 
-  ArrowLeft, CheckCircle2, AlertCircle
+  ArrowLeft, CheckCircle2, AlertCircle, Pencil, Image as ImageIcon, Film
 } from 'lucide-react';
 
 // --- INLINE BRAND SVG ICONS (Guarantees zero build errors) ---
@@ -21,6 +21,12 @@ const LinkedinIcon = ({ size = 14, className = "" }: { size?: number; className?
     <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
     <rect width="4" height="12" x="2" y="9" />
     <circle cx="4" cy="4" r="2" />
+  </svg>
+);
+
+const TwitterIcon = ({ size = 14, className = "" }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M22 4s-.7 2.1-2 3.4c1.6 10-9.4 17.3-18 11.6 2.2.1 4.4-.6 6-2C3 15.5.5 9.6 3 5c2.2 2.6 5.6 4.1 9 4-.9-4.2 4-6.6 7-3.8 1.1 0 3-1.2 3-1.2z" />
   </svg>
 );
 
@@ -55,7 +61,7 @@ interface Project {
 interface Education { _id: string; title: string; institution: string; year: string; description?: string; type: 'Education' | 'Certification'; certificateUrl?: string; }
 interface Message { _id: string; senderName: string; email: string; subject: string; message: string; createdAt: string; }
 
-// --- DEFAULT INITIAL DATA (Ensures frontend is fully populated out of the box) ---
+// --- DEFAULT INITIAL DATA ---
 const DEFAULT_SKILLS: Skill[] = [
   { _id: 's1', title: 'React', category: 'Frontend', level: 'Expert', order: 1, imageUrl: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg', description: 'Building highly interactive, component-based user interfaces with state management and custom hooks.' },
   { _id: 's2', title: 'Next.js', category: 'Frontend / Fullstack', level: 'Expert', order: 2, imageUrl: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/nextjs/nextjs-original.svg', description: 'Server-side rendering, static site generation, app router architecture, and full-stack API integration.' },
@@ -101,6 +107,8 @@ export default function PortfolioApp() {
     whatsappNumber: '254746323229',
     githubUsername: 'michael',
     githubRepo: 'portfolio',
+    linkedinUrl: '',
+    twitterUrl: '',
     heroMedia: []
   });
   
@@ -133,16 +141,24 @@ export default function PortfolioApp() {
   const [token, setToken] = useState<string | null>(null);
   const [loginCreds, setLoginCreds] = useState({ username: '', password: '' });
   const [loginError, setLoginError] = useState('');
-  const [adminTab, setAdminTab] = useState<'profile' | 'skills' | 'projects' | 'education' | 'messages'>('profile');
+  const [adminTab, setAdminTab] = useState<'profile' | 'media' | 'skills' | 'projects' | 'education' | 'messages'>('profile');
   const [messages, setMessages] = useState<Message[]>([]);
 
-  // Admin Form Editors
+  // Admin Form Editors & Edit Mode Tracking
   const [editProfile, setEditProfile] = useState<Profile>(profile);
+  
   const [newSkill, setNewSkill] = useState({ title: '', category: 'Web Development', imageUrl: '', description: '', level: 'Advanced', order: 0 });
+  const [editingSkill, setEditingSkill] = useState<Skill | null>(null);
+  
   const [newProject, setNewProject] = useState({ title: '', description: '', imageUrl: '', projectUrl: '', repoUrl: '', demoUrl: '', docsUrl: '', technologies: 'React, Node.js, Next.js', featured: true, order: 0 });
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
+  
   const [newEdu, setNewEdu] = useState({ title: '', institution: '', year: '', description: '', type: 'Education' as 'Education' | 'Certification', certificateUrl: '' });
+  const [editingEdu, setEditingEdu] = useState<Education | null>(null);
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://portfolio-2uzz.onrender.com/api';
+  const [newHeroMedia, setNewHeroMedia] = useState({ url: '', type: 'image' as 'image' | 'video', order: 0 });
+
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://portfolio-2uzz.onrender.com/api';
 
   // --- THEME COLOR CLASSES ---
   const bgMain = isDarkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900';
@@ -162,7 +178,6 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://portfolio-2uzz.onre
           setProfile(data.profile);
           setEditProfile(data.profile);
         }
-        // Only overwrite default arrays if the database actually returns saved items
         if (Array.isArray(data.skills) && data.skills.length > 0) setSkills(data.skills);
         if (Array.isArray(data.projects) && data.projects.length > 0) setProjects(data.projects);
         if (Array.isArray(data.education) && data.education.length > 0) setEducation(data.education);
@@ -288,14 +303,119 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://portfolio-2uzz.onre
     window.alert('Profile updated successfully!');
   };
 
-  const addSkill = async () => {
+  // --- FULL CRUD FOR SKILLS ---
+  const saveSkill = async () => {
     if (!token) return;
-    await fetch(`${API_BASE}/admin/skills`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify(newSkill)
-    });
-    setNewSkill({ title: '', category: 'Web Development', imageUrl: '', description: '', level: 'Advanced', order: 0 });
+    if (editingSkill) {
+      await fetch(`${API_BASE}/admin/skills/${editingSkill._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(editingSkill)
+      });
+      setEditingSkill(null);
+    } else {
+      await fetch(`${API_BASE}/admin/skills`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(newSkill)
+      });
+      setNewSkill({ title: '', category: 'Web Development', imageUrl: '', description: '', level: 'Advanced', order: 0 });
+    }
+    fetchPortfolioData();
+  };
+
+  // --- FULL CRUD FOR PROJECTS ---
+  const saveProject = async () => {
+    if (!token) return;
+    if (editingProject) {
+      const payload = { 
+        ...editingProject, 
+        technologies: Array.isArray(editingProject.technologies) 
+          ? editingProject.technologies 
+          : String(editingProject.technologies).split(',').map(t => t.trim()).filter(Boolean) 
+      };
+      await fetch(`${API_BASE}/admin/projects/${editingProject._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(payload)
+      });
+      setEditingProject(null);
+    } else {
+      const payload = { 
+        ...newProject, 
+        technologies: newProject.technologies.split(',').map(t => t.trim()).filter(Boolean) 
+      };
+      await fetch(`${API_BASE}/admin/projects`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(payload)
+      });
+      setNewProject({ title: '', description: '', imageUrl: '', projectUrl: '', repoUrl: '', demoUrl: '', docsUrl: '', technologies: 'React, Node.js', featured: true, order: 0 });
+    }
+    fetchPortfolioData();
+  };
+
+  // --- FULL CRUD FOR EDUCATION ---
+  const saveEducation = async () => {
+    if (!token) return;
+    if (editingEdu) {
+      await fetch(`${API_BASE}/admin/education/${editingEdu._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(editingEdu)
+      });
+      setEditingEdu(null);
+    } else {
+      await fetch(`${API_BASE}/admin/education`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(newEdu)
+      });
+      setNewEdu({ title: '', institution: '', year: '', description: '', type: 'Education', certificateUrl: '' });
+    }
+    fetchPortfolioData();
+  };
+
+  // --- HERO MEDIA CRUD ---
+  const addHeroMedia = async () => {
+    if (!token || !newHeroMedia.url) return;
+    try {
+      // Try standard media endpoint first, otherwise fallback to updating profile.heroMedia array
+      const res = await fetch(`${API_BASE}/admin/hero-media`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(newHeroMedia)
+      });
+      if (!res.ok) {
+        const updatedMedia = [...(editProfile.heroMedia || []), newHeroMedia];
+        setEditProfile({ ...editProfile, heroMedia: updatedMedia });
+        await fetch(`${API_BASE}/admin/profile`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ ...editProfile, heroMedia: updatedMedia })
+        });
+      }
+      setNewHeroMedia({ url: '', type: 'image', order: 0 });
+      fetchPortfolioData();
+    } catch { console.error("Error saving media banner"); }
+  };
+
+  const deleteHeroMedia = async (index: number, id?: string) => {
+    if (!token || !window.confirm('Remove this background banner?')) return;
+    if (id) {
+      await fetch(`${API_BASE}/admin/hero-media/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+    } else {
+      const updatedMedia = editProfile.heroMedia.filter((_, i) => i !== index);
+      setEditProfile({ ...editProfile, heroMedia: updatedMedia });
+      await fetch(`${API_BASE}/admin/profile`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ ...editProfile, heroMedia: updatedMedia })
+      });
+    }
     fetchPortfolioData();
   };
 
@@ -354,7 +474,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://portfolio-2uzz.onre
             {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
           </button>
 
-          {/* STEALTH HIDDEN ADMIN DOT BUTTON (Replacing the old lock button) */}
+          {/* STEALTH HIDDEN ADMIN DOT BUTTON */}
           <button 
             onClick={() => { setIsAdminOpen(true); if(token) fetchMessages(token); }}
             className="w-2 h-2 rounded-full bg-cyan-500/40 hover:bg-cyan-400 hover:scale-150 transition-all cursor-pointer shadow-sm"
@@ -426,6 +546,25 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://portfolio-2uzz.onre
               <a href="#contact" className={`font-semibold px-6 py-3.5 rounded-full border transition-all ${isDarkMode ? 'border-slate-800 hover:border-slate-700 text-slate-400 hover:text-white' : 'border-slate-300 hover:border-slate-400 text-slate-600 hover:text-black'}`}>
                 Get in Touch
               </a>
+            </div>
+
+            {/* SOCIAL MEDIA BAR */}
+            <div className="pt-2 flex items-center justify-center lg:justify-start gap-4">
+              {profile.githubUsername && (
+                <a href={`https://github.com/${profile.githubUsername}`} target="_blank" rel="noreferrer" className={`p-2.5 rounded-full border transition-all hover:scale-110 hover:text-cyan-400 ${isDarkMode ? 'bg-slate-900 border-slate-800 text-slate-300' : 'bg-slate-100 border-slate-300 text-slate-700'}`} aria-label="GitHub">
+                  <GithubIcon size={18} />
+                </a>
+              )}
+              {profile.linkedinUrl && (
+                <a href={profile.linkedinUrl} target="_blank" rel="noreferrer" className={`p-2.5 rounded-full border transition-all hover:scale-110 hover:text-cyan-400 ${isDarkMode ? 'bg-slate-900 border-slate-800 text-slate-300' : 'bg-slate-100 border-slate-300 text-slate-700'}`} aria-label="LinkedIn">
+                  <LinkedinIcon size={18} />
+                </a>
+              )}
+              {profile.twitterUrl && (
+                <a href={profile.twitterUrl} target="_blank" rel="noreferrer" className={`p-2.5 rounded-full border transition-all hover:scale-110 hover:text-cyan-400 ${isDarkMode ? 'bg-slate-900 border-slate-800 text-slate-300' : 'bg-slate-100 border-slate-300 text-slate-700'}`} aria-label="Twitter">
+                  <TwitterIcon size={18} />
+                </a>
+              )}
             </div>
           </div>
 
@@ -709,6 +848,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://portfolio-2uzz.onre
                   <span className="text-xs font-bold text-blue-400 tracking-wider uppercase">{cert.year}</span>
                   <h4 className={`text-base sm:text-lg font-bold mt-1 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{cert.title}</h4>
                   <p className={`text-sm font-medium ${textMuted}`}>{cert.institution}</p>
+                  {cert.description && <p className="text-xs text-slate-500 mt-2">{cert.description}</p>}
                   {cert.certificateUrl && (
                     <a href={cert.certificateUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-cyan-400 hover:underline mt-2 font-semibold">
                       View Certificate <ExternalLink size={12} />
@@ -788,8 +928,13 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://portfolio-2uzz.onre
       </section>
 
       {/* FOOTER */}
-      <footer className={`py-8 text-center text-xs border-t ${borderCol} ${textMuted}`}>
-        © {new Date().getFullYear()} {profile.name}. Built with Next.js, TypeScript & Tailwind CSS. All rights reserved.
+      <footer className={`py-8 text-center text-xs border-t flex flex-col items-center justify-center gap-3 ${borderCol} ${textMuted}`}>
+        <div className="flex gap-4">
+          {profile.githubUsername && <a href={`https://github.com/${profile.githubUsername}`} target="_blank" rel="noreferrer" className="hover:text-cyan-400"><GithubIcon size={16} /></a>}
+          {profile.linkedinUrl && <a href={profile.linkedinUrl} target="_blank" rel="noreferrer" className="hover:text-cyan-400"><LinkedinIcon size={16} /></a>}
+          {profile.twitterUrl && <a href={profile.twitterUrl} target="_blank" rel="noreferrer" className="hover:text-cyan-400"><TwitterIcon size={16} /></a>}
+        </div>
+        <span>© {new Date().getFullYear()} {profile.name}. Built with Next.js, TypeScript & Tailwind CSS. All rights reserved.</span>
       </footer>
 
       {/* TWO-PANEL ADMIN DASHBOARD MODAL */}
@@ -855,6 +1000,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://portfolio-2uzz.onre
                   
                   {[
                     { id: 'profile', label: 'Profile & URLs', icon: User },
+                    { id: 'media', label: `Hero Media (${editProfile.heroMedia?.length || 0})`, icon: ImageIcon },
                     { id: 'skills', label: 'Skills Manager', icon: Code },
                     { id: 'projects', label: 'Projects & Links', icon: LayoutGrid },
                     { id: 'education', label: 'Education & Certs', icon: Briefcase },
@@ -864,7 +1010,12 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://portfolio-2uzz.onre
                     return (
                       <button 
                         key={tab.id}
-                        onClick={() => setAdminTab(tab.id as any)}
+                        onClick={() => {
+                          setAdminTab(tab.id as any);
+                          setEditingSkill(null);
+                          setEditingProject(null);
+                          setEditingEdu(null);
+                        }}
                         className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold tracking-wide transition-all whitespace-nowrap text-left ${adminTab === tab.id ? 'bg-cyan-500 text-black shadow-md shadow-cyan-500/10' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
                       >
                         <Icon size={16} /> {tab.label}
@@ -914,6 +1065,14 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://portfolio-2uzz.onre
                           <label className="text-xs text-slate-400 font-semibold">GitHub Repo Name</label>
                           <input type="text" value={editProfile.githubRepo || ''} onChange={(e) => setEditProfile({...editProfile, githubRepo: e.target.value})} className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" />
                         </div>
+                        <div>
+                          <label className="text-xs text-slate-400 font-semibold">LinkedIn Profile URL</label>
+                          <input type="text" value={editProfile.linkedinUrl || ''} onChange={(e) => setEditProfile({...editProfile, linkedinUrl: e.target.value})} className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" />
+                        </div>
+                        <div>
+                          <label className="text-xs text-slate-400 font-semibold">Twitter / X Profile URL</label>
+                          <input type="text" value={editProfile.twitterUrl || ''} onChange={(e) => setEditProfile({...editProfile, twitterUrl: e.target.value})} className="w-full mt-1 bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-sm text-white focus:border-cyan-500 focus:outline-none" />
+                        </div>
                       </div>
 
                       <button onClick={updateProfile} className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold px-8 py-3 rounded-xl text-sm transition-all shadow-lg shadow-cyan-500/20">
@@ -922,18 +1081,63 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://portfolio-2uzz.onre
                     </div>
                   )}
 
+                  {adminTab === 'media' && (
+                    <div className="space-y-8 max-w-4xl">
+                      <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 space-y-4 shadow-xl">
+                        <h4 className="text-sm font-bold text-cyan-400 uppercase tracking-wider">Add Hero Slideshow Background</h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <input type="text" placeholder="Media URL (Image or MP4)" value={newHeroMedia.url} onChange={(e) => setNewHeroMedia({...newHeroMedia, url: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white sm:col-span-2" />
+                          <select value={newHeroMedia.type} onChange={(e) => setNewHeroMedia({...newHeroMedia, type: e.target.value as 'image' | 'video'})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white">
+                            <option value="image">Image</option>
+                            <option value="video">Video</option>
+                          </select>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <input type="number" placeholder="Order (e.g. 1)" value={newHeroMedia.order || ''} onChange={(e) => setNewHeroMedia({...newHeroMedia, order: parseInt(e.target.value) || 0})} className="w-32 bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                          <button onClick={addHeroMedia} className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold px-6 py-2.5 rounded-lg text-xs flex items-center gap-1.5 transition-colors">
+                            <Plus size={16} /> Add Media Banner
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {(editProfile.heroMedia || []).map((media, idx) => (
+                          <div key={idx} className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden flex items-center justify-between p-3">
+                            <div className="flex items-center gap-3 overflow-hidden">
+                              <div className="w-16 h-12 rounded bg-slate-950 flex items-center justify-center shrink-0 overflow-hidden">
+                                {media.type === 'video' ? <Film size={20} className="text-cyan-400" /> : <img src={media.url} alt="" className="w-full h-full object-cover" />}
+                              </div>
+                              <div className="truncate">
+                                <p className="text-xs font-semibold text-white truncate">{media.url}</p>
+                                <span className="text-[10px] text-cyan-400 uppercase">Type: {media.type} | Order: {media.order || 0}</span>
+                              </div>
+                            </div>
+                            <button onClick={() => deleteHeroMedia(idx, media._id)} className="text-slate-500 hover:text-red-400 p-2 shrink-0">
+                              <Trash2 size={18} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {adminTab === 'skills' && (
                     <div className="space-y-8 max-w-4xl">
                       <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 space-y-4 shadow-xl">
-                        <h4 className="text-sm font-bold text-cyan-400 uppercase tracking-wider">Add New Skill Card</h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          <input type="text" placeholder="Skill Title" value={newSkill.title} onChange={(e)=>setNewSkill({...newSkill, title: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
-                          <input type="text" placeholder="Category" value={newSkill.category} onChange={(e)=>setNewSkill({...newSkill, category: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
-                          <input type="text" placeholder="Image Icon URL" value={newSkill.imageUrl} onChange={(e)=>setNewSkill({...newSkill, imageUrl: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                        <div className="flex justify-between items-center">
+                          <h4 className="text-sm font-bold text-cyan-400 uppercase tracking-wider">{editingSkill ? 'Edit Skill Card' : 'Add New Skill Card'}</h4>
+                          {editingSkill && <button onClick={() => setEditingSkill(null)} className="text-xs text-red-400 hover:underline">Cancel Edit</button>}
                         </div>
-                        <textarea placeholder="Detailed description..." value={newSkill.description} onChange={(e)=>setNewSkill({...newSkill, description: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white resize-none" rows={2} />
-                        <button onClick={addSkill} className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold px-6 py-2.5 rounded-lg text-xs flex items-center gap-1.5 transition-colors">
-                          <Plus size={16} /> Add Skill to Grid
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                          <input type="text" placeholder="Skill Title" value={editingSkill ? editingSkill.title : newSkill.title} onChange={(e) => editingSkill ? setEditingSkill({...editingSkill, title: e.target.value}) : setNewSkill({...newSkill, title: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                          <input type="text" placeholder="Category" value={editingSkill ? editingSkill.category : newSkill.category} onChange={(e) => editingSkill ? setEditingSkill({...editingSkill, category: e.target.value}) : setNewSkill({...newSkill, category: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                          <input type="text" placeholder="Level (e.g. Expert)" value={editingSkill ? editingSkill.level : newSkill.level} onChange={(e) => editingSkill ? setEditingSkill({...editingSkill, level: e.target.value}) : setNewSkill({...newSkill, level: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                          <input type="number" placeholder="Order Number" value={editingSkill ? editingSkill.order : newSkill.order || ''} onChange={(e) => editingSkill ? setEditingSkill({...editingSkill, order: parseInt(e.target.value) || 0}) : setNewSkill({...newSkill, order: parseInt(e.target.value) || 0})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                        </div>
+                        <input type="text" placeholder="Image Icon URL" value={editingSkill ? editingSkill.imageUrl : newSkill.imageUrl} onChange={(e) => editingSkill ? setEditingSkill({...editingSkill, imageUrl: e.target.value}) : setNewSkill({...newSkill, imageUrl: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                        <textarea placeholder="Detailed description..." value={editingSkill ? editingSkill.description : newSkill.description} onChange={(e) => editingSkill ? setEditingSkill({...editingSkill, description: e.target.value}) : setNewSkill({...newSkill, description: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white resize-none" rows={2} />
+                        <button onClick={saveSkill} className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold px-6 py-2.5 rounded-lg text-xs flex items-center gap-1.5 transition-colors">
+                          <Plus size={16} /> {editingSkill ? 'Update Skill' : 'Add Skill to Grid'}
                         </button>
                       </div>
 
@@ -943,13 +1147,14 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://portfolio-2uzz.onre
                             <div className="flex items-center gap-3">
                               <img src={s.imageUrl} alt="" className="w-10 h-10 object-contain bg-slate-800 p-1 rounded-lg" />
                               <div>
-                                <h5 className="text-sm font-bold text-white">{s.title}</h5>
+                                <h5 className="text-sm font-bold text-white">{s.title} <span className="text-[10px] text-slate-500">#{s.order}</span></h5>
                                 <span className="text-[10px] text-slate-400">{s.category} • {s.level}</span>
                               </div>
                             </div>
-                            <button onClick={() => deleteItem('skills', s._id)} className="text-slate-500 hover:text-red-400 p-2 rounded-lg hover:bg-slate-800">
-                              <Trash2 size={18} />
-                            </button>
+                            <div className="flex items-center gap-1">
+                              <button onClick={() => setEditingSkill(s)} className="text-slate-400 hover:text-cyan-400 p-2 rounded-lg hover:bg-slate-800"><Pencil size={16} /></button>
+                              <button onClick={() => deleteItem('skills', s._id)} className="text-slate-500 hover:text-red-400 p-2 rounded-lg hover:bg-slate-800"><Trash2 size={18} /></button>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -959,32 +1164,30 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://portfolio-2uzz.onre
                   {adminTab === 'projects' && (
                     <div className="space-y-8 max-w-4xl">
                       <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 space-y-4 shadow-xl">
-                        <h4 className="text-sm font-bold text-cyan-400 uppercase tracking-wider">Add New Project with Multiple Links</h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <input type="text" placeholder="Project Title" value={newProject.title} onChange={(e)=>setNewProject({...newProject, title: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
-                          <input type="text" placeholder="Image URL" value={newProject.imageUrl} onChange={(e)=>setNewProject({...newProject, imageUrl: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
-                          <input type="text" placeholder="Live Project URL" value={newProject.projectUrl} onChange={(e)=>setNewProject({...newProject, projectUrl: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
-                          <input type="text" placeholder="GitHub Repo URL" value={newProject.repoUrl} onChange={(e)=>setNewProject({...newProject, repoUrl: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
-                          <input type="text" placeholder="Live Demo URL" value={newProject.demoUrl} onChange={(e)=>setNewProject({...newProject, demoUrl: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
-                          <input type="text" placeholder="Documentation URL" value={newProject.docsUrl} onChange={(e)=>setNewProject({...newProject, docsUrl: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                        <div className="flex justify-between items-center">
+                          <h4 className="text-sm font-bold text-cyan-400 uppercase tracking-wider">{editingProject ? 'Edit Project' : 'Add New Project with Multiple Links'}</h4>
+                          {editingProject && <button onClick={() => setEditingProject(null)} className="text-xs text-red-400 hover:underline">Cancel Edit</button>}
                         </div>
-                        <input type="text" placeholder="Technologies (Comma separated)" value={newProject.technologies} onChange={(e)=>setNewProject({...newProject, technologies: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
-                        <textarea placeholder="Detailed Project Description..." value={newProject.description} onChange={(e)=>setNewProject({...newProject, description: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white resize-none" rows={2} />
-                        <button 
-                          onClick={async () => {
-                            if (!token) return;
-                            const payload = { ...newProject, technologies: newProject.technologies.split(',').map(t=>t.trim()).filter(Boolean) };
-                            await fetch(`${API_BASE}/admin/projects`, {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                              body: JSON.stringify(payload)
-                            });
-                            setNewProject({ title: '', description: '', imageUrl: '', projectUrl: '', repoUrl: '', demoUrl: '', docsUrl: '', technologies: 'React, Node.js', featured: true, order: 0 });
-                            fetchPortfolioData();
-                          }} 
-                          className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold px-6 py-2.5 rounded-lg text-xs flex items-center gap-1.5 transition-colors"
-                        >
-                          <Plus size={16} /> Add Project
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <input type="text" placeholder="Project Title" value={editingProject ? editingProject.title : newProject.title} onChange={(e) => editingProject ? setEditingProject({...editingProject, title: e.target.value}) : setNewProject({...newProject, title: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                          <input type="text" placeholder="Image URL" value={editingProject ? editingProject.imageUrl : newProject.imageUrl} onChange={(e) => editingProject ? setEditingProject({...editingProject, imageUrl: e.target.value}) : setNewProject({...newProject, imageUrl: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                          <input type="text" placeholder="Live Project URL" value={editingProject ? editingProject.projectUrl : newProject.projectUrl} onChange={(e) => editingProject ? setEditingProject({...editingProject, projectUrl: e.target.value}) : setNewProject({...newProject, projectUrl: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                          <input type="text" placeholder="GitHub Repo URL" value={editingProject ? editingProject.repoUrl || '' : newProject.repoUrl} onChange={(e) => editingProject ? setEditingProject({...editingProject, repoUrl: e.target.value}) : setNewProject({...newProject, repoUrl: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                          <input type="text" placeholder="Live Demo URL" value={editingProject ? editingProject.demoUrl || '' : newProject.demoUrl} onChange={(e) => editingProject ? setEditingProject({...editingProject, demoUrl: e.target.value}) : setNewProject({...newProject, demoUrl: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                          <input type="text" placeholder="Documentation URL" value={editingProject ? editingProject.docsUrl || '' : newProject.docsUrl} onChange={(e) => editingProject ? setEditingProject({...editingProject, docsUrl: e.target.value}) : setNewProject({...newProject, docsUrl: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
+                          <input type="text" placeholder="Technologies (Comma separated)" value={editingProject ? (Array.isArray(editingProject.technologies) ? editingProject.technologies.join(', ') : editingProject.technologies) : newProject.technologies} onChange={(e) => editingProject ? setEditingProject({...editingProject, technologies: e.target.value as any}) : setNewProject({...newProject, technologies: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white sm:col-span-2" />
+                          <div className="flex items-center gap-4">
+                            <label className="text-xs text-slate-300 flex items-center gap-1.5 font-semibold">
+                              <input type="checkbox" checked={editingProject ? editingProject.featured : newProject.featured} onChange={(e) => editingProject ? setEditingProject({...editingProject, featured: e.target.checked}) : setNewProject({...newProject, featured: e.target.checked})} className="rounded border-slate-800" /> Featured
+                            </label>
+                            <input type="number" placeholder="Order" value={editingProject ? editingProject.order : newProject.order || ''} onChange={(e) => editingProject ? setEditingProject({...editingProject, order: parseInt(e.target.value) || 0}) : setNewProject({...newProject, order: parseInt(e.target.value) || 0})} className="w-20 bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white" />
+                          </div>
+                        </div>
+                        <textarea placeholder="Detailed Project Description..." value={editingProject ? editingProject.description : newProject.description} onChange={(e) => editingProject ? setEditingProject({...editingProject, description: e.target.value}) : setNewProject({...newProject, description: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white resize-none" rows={2} />
+                        <button onClick={saveProject} className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold px-6 py-2.5 rounded-lg text-xs flex items-center gap-1.5 transition-colors">
+                          <Plus size={16} /> {editingProject ? 'Update Project' : 'Add Project'}
                         </button>
                       </div>
 
@@ -992,15 +1195,18 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://portfolio-2uzz.onre
                         {projects.map((p) => (
                           <div key={p._id} className="flex justify-between items-center bg-slate-900 p-4 rounded-xl border border-slate-800">
                             <div>
-                              <h5 className="font-bold text-white text-sm">{p.title}</h5>
+                              <h5 className="font-bold text-white text-sm flex items-center gap-2">
+                                {p.title} {p.featured && <span className="bg-cyan-500/10 text-cyan-400 text-[9px] px-2 py-0.5 rounded border border-cyan-500/20">Featured</span>}
+                              </h5>
                               <div className="flex gap-4 text-[11px] mt-1 text-cyan-400">
                                 {p.projectUrl && <a href={p.projectUrl} target="_blank" rel="noreferrer" className="hover:underline">Live URL</a>}
                                 {p.repoUrl && <a href={p.repoUrl} target="_blank" rel="noreferrer" className="hover:underline">Repo URL</a>}
                               </div>
                             </div>
-                            <button onClick={() => deleteItem('projects', p._id)} className="text-slate-500 hover:text-red-400 p-2 rounded-lg hover:bg-slate-800">
-                              <Trash2 size={18} />
-                            </button>
+                            <div className="flex items-center gap-1">
+                              <button onClick={() => setEditingProject(p)} className="text-slate-400 hover:text-cyan-400 p-2 rounded-lg hover:bg-slate-800"><Pencil size={16} /></button>
+                              <button onClick={() => deleteItem('projects', p._id)} className="text-slate-500 hover:text-red-400 p-2 rounded-lg hover:bg-slate-800"><Trash2 size={18} /></button>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -1010,31 +1216,23 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://portfolio-2uzz.onre
                   {adminTab === 'education' && (
                     <div className="space-y-8 max-w-4xl">
                       <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 space-y-4 shadow-xl">
-                        <h4 className="text-sm font-bold text-cyan-400 uppercase tracking-wider">Add Education / Certification Record</h4>
+                        <div className="flex justify-between items-center">
+                          <h4 className="text-sm font-bold text-cyan-400 uppercase tracking-wider">{editingEdu ? 'Edit Record' : 'Add Education / Certification Record'}</h4>
+                          {editingEdu && <button onClick={() => setEditingEdu(null)} className="text-xs text-red-400 hover:underline">Cancel Edit</button>}
+                        </div>
                         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                          <select value={newEdu.type} onChange={(e)=>setNewEdu({...newEdu, type: e.target.value as 'Education' | 'Certification'})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white">
+                          <select value={editingEdu ? editingEdu.type : newEdu.type} onChange={(e) => editingEdu ? setEditingEdu({...editingEdu, type: e.target.value as 'Education' | 'Certification'}) : setNewEdu({...newEdu, type: e.target.value as 'Education' | 'Certification'})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white">
                             <option value="Education">Education</option>
                             <option value="Certification">Certification</option>
                           </select>
-                          <input type="text" placeholder="Title" value={newEdu.title} onChange={(e)=>setNewEdu({...newEdu, title: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
-                          <input type="text" placeholder="Institution" value={newEdu.institution} onChange={(e)=>setNewEdu({...newEdu, institution: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
-                          <input type="text" placeholder="Year" value={newEdu.year} onChange={(e)=>setNewEdu({...newEdu, year: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                          <input type="text" placeholder="Title" value={editingEdu ? editingEdu.title : newEdu.title} onChange={(e) => editingEdu ? setEditingEdu({...editingEdu, title: e.target.value}) : setNewEdu({...newEdu, title: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                          <input type="text" placeholder="Institution" value={editingEdu ? editingEdu.institution : newEdu.institution} onChange={(e) => editingEdu ? setEditingEdu({...editingEdu, institution: e.target.value}) : setNewEdu({...newEdu, institution: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                          <input type="text" placeholder="Year" value={editingEdu ? editingEdu.year : newEdu.year} onChange={(e) => editingEdu ? setEditingEdu({...editingEdu, year: e.target.value}) : setNewEdu({...newEdu, year: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
                         </div>
-                        <input type="text" placeholder="Certificate Verification URL" value={newEdu.certificateUrl} onChange={(e)=>setNewEdu({...newEdu, certificateUrl: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
-                        <button 
-                          onClick={async () => {
-                            if (!token) return;
-                            await fetch(`${API_BASE}/admin/education`, {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                              body: JSON.stringify(newEdu)
-                            });
-                            setNewEdu({ title: '', institution: '', year: '', description: '', type: 'Education', certificateUrl: '' });
-                            fetchPortfolioData();
-                          }} 
-                          className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold px-6 py-2.5 rounded-lg text-xs flex items-center gap-1.5 transition-colors"
-                        >
-                          <Plus size={16} /> Add Record
+                        <input type="text" placeholder="Certificate Verification URL" value={editingEdu ? editingEdu.certificateUrl || '' : newEdu.certificateUrl} onChange={(e) => editingEdu ? setEditingEdu({...editingEdu, certificateUrl: e.target.value}) : setNewEdu({...newEdu, certificateUrl: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
+                        <textarea placeholder="Description or Coursework Details..." value={editingEdu ? editingEdu.description || '' : newEdu.description} onChange={(e) => editingEdu ? setEditingEdu({...editingEdu, description: e.target.value}) : setNewEdu({...newEdu, description: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white resize-none" rows={2} />
+                        <button onClick={saveEducation} className="bg-cyan-500 hover:bg-cyan-400 text-black font-bold px-6 py-2.5 rounded-lg text-xs flex items-center gap-1.5 transition-colors">
+                          <Plus size={16} /> {editingEdu ? 'Update Record' : 'Add Record'}
                         </button>
                       </div>
 
@@ -1046,9 +1244,10 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://portfolio-2uzz.onre
                               <span className="font-bold text-white text-sm">{item.title}</span>
                               <span className="text-xs text-slate-400 ml-2">— {item.institution} ({item.year})</span>
                             </div>
-                            <button onClick={() => deleteItem('education', item._id)} className="text-slate-500 hover:text-red-400 p-2 rounded-lg hover:bg-slate-800">
-                              <Trash2 size={18} />
-                            </button>
+                            <div className="flex items-center gap-1">
+                              <button onClick={() => setEditingEdu(item)} className="text-slate-400 hover:text-cyan-400 p-2 rounded-lg hover:bg-slate-800"><Pencil size={16} /></button>
+                              <button onClick={() => deleteItem('education', item._id)} className="text-slate-500 hover:text-red-400 p-2 rounded-lg hover:bg-slate-800"><Trash2 size={18} /></button>
+                            </div>
                           </div>
                         ))}
                       </div>
