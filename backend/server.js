@@ -214,10 +214,41 @@ app.put('/api/admin/profile', authenticateAdmin, async (req, res) => {
   try {
     const updateFields = { ...req.body, updatedAt: Date.now() };
 
-    // Support multiple common naming conventions from the frontend for profile image
-    if (req.body.profileImage || req.body.avatarUrl || req.body.imageUrl) {
-      updateFields.profilePic = req.body.profileImage || req.body.avatarUrl || req.body.imageUrl;
+    // Support profilePicUrl sent from frontend along with other naming conventions
+    if (req.body.profilePicUrl || req.body.profileImage || req.body.avatarUrl || req.body.imageUrl) {
+      const pic = req.body.profilePicUrl || req.body.profileImage || req.body.avatarUrl || req.body.imageUrl;
+      updateFields.profilePic = pic;
+      updateFields.profilePicUrl = pic;
     }
+// --- Hero Media Control ---
+app.post('/api/admin/hero-media', authenticateAdmin, async (req, res) => {
+  try {
+    const { url, type, order } = req.body;
+    let profile = await Profile.findOne();
+    if (!profile) {
+      profile = new Profile();
+    }
+    
+    profile.heroMedia.push({ url, type, order: order || profile.heroMedia.length + 1 });
+    await profile.save();
+    res.status(201).json(profile.heroMedia);
+  } catch (err) {
+    res.status(400).json({ error: 'Failed to add hero media', details: err.message });
+  }
+});
+
+app.delete('/api/admin/hero-media/:id', authenticateAdmin, async (req, res) => {
+  try {
+    const profile = await Profile.findOne();
+    if (!profile) return res.status(404).json({ error: 'Profile not found' });
+    
+    profile.heroMedia = profile.heroMedia.filter(m => m._id.toString() !== req.params.id);
+    await profile.save();
+    res.json({ message: 'Hero media deleted', heroMedia: profile.heroMedia });
+  } catch (err) {
+    res.status(400).json({ error: 'Failed to delete hero media', details: err.message });
+  }
+});
     // Support multiple naming conventions for CV update
     if (req.body.resumeUrl || req.body.cv) {
       updateFields.cvUrl = req.body.resumeUrl || req.body.cv;
