@@ -119,22 +119,23 @@ nextApp.prepare().then(async () => {
   // MONGODB CONNECTION
 // MONGODB CONNECTION
   if (!MONGODB_URI) {
-    console.error('❌ FATAL: MONGO_URI or MONGODB_URI is not defined in environment variables.');
+    console.error('❌ FATAL: MONGODB_URI is not defined in environment variables.');
     process.exit(1);
   }
 
+  console.log('⏳ Attempting to connect to MongoDB Atlas cluster...');
   try {
     await mongoose.connect(MONGODB_URI, {
-      serverSelectionTimeoutMS: 10000,
+      serverSelectionTimeoutMS: 15000, // Timeout after 15s instead of hanging
       socketTimeoutMS: 45000,
-      maxPoolSize: 10
+      maxPoolSize: 10,
+      tls: true, // Explicitly enforce TLS handshake required by Atlas
     });
     console.log(`🍃 MongoDB Connected Successfully to Cluster!`);
-  } catch (dbErr) {
-    console.error('❌ FATAL: MongoDB Connection Failed:', dbErr.message);
-    process.exit(1);
+  } catch (connErr) {
+    console.error('❌ MongoDB Connection Detailed Error:', connErr);
+    throw connErr;
   }
-
   // Global Real Estate Settings Seeding
   await SystemConfig.findOneAndUpdate(
     { key: 'platform_fee_percentage' }, 
