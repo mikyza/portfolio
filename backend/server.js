@@ -117,20 +117,23 @@ nextApp.prepare().then(async () => {
   console.log('📦 Next.js frontend rendering engine compiled.');
 
   // MONGODB CONNECTION
+// MONGODB CONNECTION
   if (!MONGODB_URI) {
     console.error('❌ FATAL: MONGO_URI or MONGODB_URI is not defined in environment variables.');
     process.exit(1);
   }
 
-  await mongoose.connect(MONGODB_URI, {
-    serverSelectionTimeoutMS: 10000,
-    socketTimeoutMS: 45000,
-    maxPoolSize: 10
-  });
-  console.log(`🍃 MongoDB Connected Successfully to Cluster!`);
-
-  const expressApp = express();
-  const server = createServer(expressApp);
+  try {
+    await mongoose.connect(MONGODB_URI, {
+      serverSelectionTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
+      maxPoolSize: 10
+    });
+    console.log(`🍃 MongoDB Connected Successfully to Cluster!`);
+  } catch (dbErr) {
+    console.error('❌ FATAL: MongoDB Connection Failed:', dbErr.message);
+    process.exit(1);
+  }
 
   // Global Real Estate Settings Seeding
   await SystemConfig.findOneAndUpdate(
