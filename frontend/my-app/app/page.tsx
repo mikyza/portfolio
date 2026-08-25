@@ -60,7 +60,15 @@ interface Project {
 }
 interface Education { _id: string; title: string; institution: string; year: string; description?: string; type: 'Education' | 'Certification'; certificateUrl?: string; }
 interface Message { _id: string; senderName: string; email: string; subject: string; message: string; createdAt: string; }
-
+const DEFAULT_PROJECTS: Project[] = [
+  {
+    id: '1',
+    title: 'Sample Project',
+    description: 'A full-stack web application built with React and Node.js.',
+    tags: ['React', 'Node.js', 'Tailwind CSS'],
+    link: 'https://github.com/yourusername/project',
+  },
+];
 // --- DEFAULT INITIAL DATA ---
 const DEFAULT_SKILLS: Skill[] = [
   { _id: 's1', title: 'React', category: 'Frontend', level: 'Expert', order: 1, imageUrl: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg', description: 'Building highly interactive, component-based user interfaces with state management and custom hooks.' },
