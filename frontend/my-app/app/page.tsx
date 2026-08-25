@@ -60,15 +60,21 @@ interface Project {
 }
 interface Education { _id: string; title: string; institution: string; year: string; description?: string; type: 'Education' | 'Certification'; certificateUrl?: string; }
 interface Message { _id: string; senderName: string; email: string; subject: string; message: string; createdAt: string; }
+
+// --- FIXED DEFAULT PROJECTS (Resolves type errors) ---
 const DEFAULT_PROJECTS: Project[] = [
   {
-    id: '1',
+    _id: '1',
     title: 'Sample Project',
     description: 'A full-stack web application built with React and Node.js.',
-    tags: ['React', 'Node.js', 'Tailwind CSS'],
-    link: 'https://github.com/yourusername/project',
+    technologies: ['React', 'Node.js', 'Tailwind CSS'],
+    projectUrl: 'https://github.com/yourusername/project',
+    imageUrl: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=600&auto=format&fit=crop&q=80',
+    featured: true,
+    order: 1
   },
 ];
+
 // --- DEFAULT INITIAL DATA ---
 const DEFAULT_SKILLS: Skill[] = [
   { _id: 's1', title: 'React', category: 'Frontend', level: 'Expert', order: 1, imageUrl: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg', description: 'Building highly interactive, component-based user interfaces with state management and custom hooks.' },
@@ -88,8 +94,6 @@ const DEFAULT_SKILLS: Skill[] = [
   { _id: 's15', title: 'UI / UX Design (Figma)', category: 'Design', level: 'Advanced', order: 15, imageUrl: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/figma/figma-original.svg', description: 'Wireframing user flows, interactive prototyping, and bridging aesthetic design with responsive frontend code.' },
   { _id: 's16', title: 'Payment Gateways (M-Pesa)', category: 'FinTech Integration', level: 'Expert', order: 16, imageUrl: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/postman/postman-original.svg', description: 'Integrating M-Pesa STK push, automated callbacks, and Till/Paybill reconciliation APIs for seamless e-commerce checkout.' }
 ];
-
-
 
 export default function PortfolioApp() {
   // --- STATE MANAGEMENT ---
@@ -170,7 +174,7 @@ const fetchPortfolioData = async () => {
     if (res.ok) {
       const data = await res.json();
       if (data.profile && data.profile.name) {
-        // Normalize profile data to handle schema property variations (e.g., profilePic vs profilePicUrl)
+        // Normalize profile data to handle schema property variations
         const normalizedProfile = {
           ...data.profile,
           profilePicUrl: data.profile.profilePicUrl || data.profile.profilePic || '',
@@ -206,9 +210,10 @@ useEffect(() => {
   const savedToken = localStorage.getItem('admin_token');
   if (savedToken) {
     setToken(savedToken);
-    fetchMessages(savedToken); // Fixed: Automatically fetch messages using the retrieved token
+    fetchMessages(savedToken); 
   }
 }, []);
+
   // --- HERO MEDIA ROTATION ---
  useEffect(() => {
   if (profile.heroMedia && profile.heroMedia.length > 0) {
@@ -218,6 +223,7 @@ useEffect(() => {
     return () => clearInterval(timer);
   }
 }, [profile.heroMedia?.length]);
+
   // --- TYPEWRITER EFFECT HOOK ---
   useEffect(() => {
     const titles = profile.profession ? profile.profession.split(',').map(p => p.trim()) : ['Full-Stack Developer'];
@@ -382,7 +388,6 @@ useEffect(() => {
   const addHeroMedia = async () => {
     if (!token || !newHeroMedia.url) return;
     try {
-      // Try standard media endpoint first, otherwise fallback to updating profile.heroMedia array
       const res = await fetch(`${API_BASE}/admin/hero-media`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
@@ -535,7 +540,7 @@ useEffect(() => {
               </a>
               
               <a 
-                href={`https://raw.githubusercontent.com/${profile.githubUsername || 'michael'}/${profile.githubRepo || 'portfolio'}/main/docs/Michael.docx`}
+                href="https://github.com/mikyza/portfolio/blob/main/docs/Michael.docx?raw=true"
                 download="Michael.docx"
                 target="_blank"
                 rel="noopener noreferrer"
