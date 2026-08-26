@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
-  GraduationCap, Award, ExternalLink, Lock, LogOut, Plus, Trash2, X, 
-  ShieldAlert, Sun, Moon, Download, Mail, Send, 
-  LayoutGrid, User, Code, Briefcase, MessageSquare, Globe, ChevronRight, 
+  GraduationCap, Award, ExternalLink, LogOut, Plus, Trash2, X, 
+  ShieldAlert, Sun, Moon, Download, Send, 
+  LayoutGrid, User, Code, Briefcase, MessageSquare, Globe, 
   ArrowLeft, CheckCircle2, AlertCircle, Pencil, Image as ImageIcon, Film
 } from 'lucide-react';
 
@@ -60,6 +60,9 @@ interface Project {
 }
 interface Education { _id: string; title: string; institution: string; year: string; description?: string; type: 'Education' | 'Certification'; certificateUrl?: string; }
 interface Message { _id: string; senderName: string; email: string; subject: string; message: string; createdAt: string; }
+
+// Admin Tab Types mapping
+type AdminTabType = 'profile' | 'media' | 'skills' | 'projects' | 'education' | 'messages';
 
 // --- FIXED DEFAULT PROJECTS (Resolves type errors) ---
 const DEFAULT_PROJECTS: Project[] = [
@@ -140,7 +143,7 @@ export default function PortfolioApp() {
   const [token, setToken] = useState<string | null>(null);
   const [loginCreds, setLoginCreds] = useState({ username: '', password: '' });
   const [loginError, setLoginError] = useState('');
-  const [adminTab, setAdminTab] = useState<'profile' | 'media' | 'skills' | 'projects' | 'education' | 'messages'>('profile');
+  const [adminTab, setAdminTab] = useState<AdminTabType>('profile');
   const [messages, setMessages] = useState<Message[]>([]);
 
   // Admin Form Editors & Edit Mode Tracking
@@ -168,61 +171,63 @@ export default function PortfolioApp() {
   const inputBg = isDarkMode ? 'bg-slate-950 border-slate-800 text-white focus:border-cyan-500' : 'bg-slate-100 border-slate-300 text-slate-900 focus:border-cyan-500';
 
   // --- DATA FETCHING ---
-const fetchPortfolioData = async () => {
-  try {
-    const res = await fetch(`${API_BASE}/portfolio`);
-    if (res.ok) {
-      const data = await res.json();
-      if (data.profile && data.profile.name) {
-        // Normalize profile data to handle schema property variations
-        const normalizedProfile = {
-          ...data.profile,
-          profilePicUrl: data.profile.profilePicUrl || data.profile.profilePic || '',
-          heroMedia: data.profile.heroMedia || []
-        };
-        setProfile(normalizedProfile);
-        setEditProfile(normalizedProfile);
+  const fetchPortfolioData = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/portfolio`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.profile && data.profile.name) {
+          // Normalize profile data to handle schema property variations
+          const normalizedProfile = {
+            ...data.profile,
+            profilePicUrl: data.profile.profilePicUrl || data.profile.profilePic || '',
+            heroMedia: data.profile.heroMedia || []
+          };
+          setProfile(normalizedProfile);
+          setEditProfile(normalizedProfile);
+        }
+        if (Array.isArray(data.skills) && data.skills.length > 0) setSkills(data.skills);
+        if (Array.isArray(data.projects) && data.projects.length > 0) setProjects(data.projects);
+        if (Array.isArray(data.education) && data.education.length > 0) setEducation(data.education);
+        if (Array.isArray(data.certifications) && data.certifications.length > 0) setCertifications(data.certifications);
       }
-      if (Array.isArray(data.skills) && data.skills.length > 0) setSkills(data.skills);
-      if (Array.isArray(data.projects) && data.projects.length > 0) setProjects(data.projects);
-      if (Array.isArray(data.education) && data.education.length > 0) setEducation(data.education);
-      if (Array.isArray(data.certifications) && data.certifications.length > 0) setCertifications(data.certifications);
+    } catch (err: any) {
+      console.log("Using robust default frontend state; backend API not currently connected.");
     }
-  } catch (err) {
-    console.log("Using robust default frontend state; backend API not currently connected.");
-  }
-};
+  }, [API_BASE]);
 
-const fetchMessages = async (authToken: string) => {
-  try {
-    const res = await fetch(`${API_BASE}/admin/messages`, {
-      headers: { 'Authorization': `Bearer ${authToken}` }
-    });
-    if (res.ok) {
-      const data = await res.json();
-      setMessages(Array.isArray(data) ? data : []);
+  const fetchMessages = useCallback(async (authToken: string) => {
+    try {
+      const res = await fetch(`${API_BASE}/admin/messages`, {
+        headers: { 'Authorization': `Bearer ${authToken}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMessages(Array.isArray(data) ? data : []);
+      }
+    } catch (err: any) { 
+      console.error(err); 
     }
-  } catch (err) { console.error(err); }
-};
+  }, [API_BASE]);
 
-useEffect(() => {
-  fetchPortfolioData();
-  const savedToken = localStorage.getItem('admin_token');
-  if (savedToken) {
-    setToken(savedToken);
-    fetchMessages(savedToken); 
-  }
-}, []);
+  useEffect(() => {
+    fetchPortfolioData();
+    const savedToken = localStorage.getItem('admin_token');
+    if (savedToken) {
+      setToken(savedToken);
+      fetchMessages(savedToken); 
+    }
+  }, [fetchPortfolioData, fetchMessages]);
 
   // --- HERO MEDIA ROTATION ---
- useEffect(() => {
-  if (profile.heroMedia && profile.heroMedia.length > 0) {
-    const timer = setInterval(() => {
-      setActiveMediaIndex((prev) => (prev + 1) % profile.heroMedia.length);
-    }, 8000);
-    return () => clearInterval(timer);
-  }
-}, [profile.heroMedia?.length]);
+  useEffect(() => {
+    if (profile.heroMedia && profile.heroMedia.length > 0) {
+      const timer = setInterval(() => {
+        setActiveMediaIndex((prev) => (prev + 1) % profile.heroMedia.length);
+      }, 8000);
+      return () => clearInterval(timer);
+    }
+  }, [profile.heroMedia]);
 
   // --- TYPEWRITER EFFECT HOOK ---
   useEffect(() => {
@@ -266,7 +271,7 @@ useEffect(() => {
       } else {
         setContactStatus({ type: 'error', msg: 'Failed to send message. Please try again.' });
       }
-    } catch {
+    } catch (error: any) {
       setContactStatus({ type: 'error', msg: 'Network error. Make sure backend is running.' });
     }
   };
@@ -288,7 +293,7 @@ useEffect(() => {
       } else {
         setLoginError(data.error || 'Login failed');
       }
-    } catch {
+    } catch (error: any) {
       setLoginError('Could not connect to server.');
     }
   };
@@ -302,86 +307,102 @@ useEffect(() => {
   // --- ADMIN CRUD ACTIONS ---
   const updateProfile = async () => {
     if (!token) return;
-    await fetch(`${API_BASE}/admin/profile`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify(editProfile)
-    });
-    fetchPortfolioData();
-    window.alert('Profile updated successfully!');
+    try {
+      await fetch(`${API_BASE}/admin/profile`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify(editProfile)
+      });
+      fetchPortfolioData();
+      window.alert('Profile updated successfully!');
+    } catch (err: any) {
+      console.error(err);
+    }
   };
 
   // --- FULL CRUD FOR SKILLS ---
   const saveSkill = async () => {
     if (!token) return;
-    if (editingSkill) {
-      await fetch(`${API_BASE}/admin/skills/${editingSkill._id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(editingSkill)
-      });
-      setEditingSkill(null);
-    } else {
-      await fetch(`${API_BASE}/admin/skills`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(newSkill)
-      });
-      setNewSkill({ title: '', category: 'Web Development', imageUrl: '', description: '', level: 'Advanced', order: 0 });
+    try {
+      if (editingSkill) {
+        await fetch(`${API_BASE}/admin/skills/${editingSkill._id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify(editingSkill)
+        });
+        setEditingSkill(null);
+      } else {
+        await fetch(`${API_BASE}/admin/skills`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify(newSkill)
+        });
+        setNewSkill({ title: '', category: 'Web Development', imageUrl: '', description: '', level: 'Advanced', order: 0 });
+      }
+      fetchPortfolioData();
+    } catch (err: any) {
+      console.error(err);
     }
-    fetchPortfolioData();
   };
 
   // --- FULL CRUD FOR PROJECTS ---
   const saveProject = async () => {
     if (!token) return;
-    if (editingProject) {
-      const payload = { 
-        ...editingProject, 
-        technologies: Array.isArray(editingProject.technologies) 
-          ? editingProject.technologies 
-          : String(editingProject.technologies).split(',').map(t => t.trim()).filter(Boolean) 
-      };
-      await fetch(`${API_BASE}/admin/projects/${editingProject._id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(payload)
-      });
-      setEditingProject(null);
-    } else {
-      const payload = { 
-        ...newProject, 
-        technologies: newProject.technologies.split(',').map(t => t.trim()).filter(Boolean) 
-      };
-      await fetch(`${API_BASE}/admin/projects`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(payload)
-      });
-      setNewProject({ title: '', description: '', imageUrl: '', projectUrl: '', repoUrl: '', demoUrl: '', docsUrl: '', technologies: 'React, Node.js', featured: true, order: 0 });
+    try {
+      if (editingProject) {
+        const payload = { 
+          ...editingProject, 
+          technologies: Array.isArray(editingProject.technologies) 
+            ? editingProject.technologies 
+            : String(editingProject.technologies).split(',').map(t => t.trim()).filter(Boolean) 
+        };
+        await fetch(`${API_BASE}/admin/projects/${editingProject._id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify(payload)
+        });
+        setEditingProject(null);
+      } else {
+        const payload = { 
+          ...newProject, 
+          technologies: newProject.technologies.split(',').map(t => t.trim()).filter(Boolean) 
+        };
+        await fetch(`${API_BASE}/admin/projects`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify(payload)
+        });
+        setNewProject({ title: '', description: '', imageUrl: '', projectUrl: '', repoUrl: '', demoUrl: '', docsUrl: '', technologies: 'React, Node.js', featured: true, order: 0 });
+      }
+      fetchPortfolioData();
+    } catch (err: any) {
+      console.error(err);
     }
-    fetchPortfolioData();
   };
 
   // --- FULL CRUD FOR EDUCATION ---
   const saveEducation = async () => {
     if (!token) return;
-    if (editingEdu) {
-      await fetch(`${API_BASE}/admin/education/${editingEdu._id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(editingEdu)
-      });
-      setEditingEdu(null);
-    } else {
-      await fetch(`${API_BASE}/admin/education`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(newEdu)
-      });
-      setNewEdu({ title: '', institution: '', year: '', description: '', type: 'Education', certificateUrl: '' });
+    try {
+      if (editingEdu) {
+        await fetch(`${API_BASE}/admin/education/${editingEdu._id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify(editingEdu)
+        });
+        setEditingEdu(null);
+      } else {
+        await fetch(`${API_BASE}/admin/education`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify(newEdu)
+        });
+        setNewEdu({ title: '', institution: '', year: '', description: '', type: 'Education', certificateUrl: '' });
+      }
+      fetchPortfolioData();
+    } catch (err: any) {
+      console.error(err);
     }
-    fetchPortfolioData();
   };
 
   // --- HERO MEDIA CRUD ---
@@ -404,41 +425,60 @@ useEffect(() => {
       }
       setNewHeroMedia({ url: '', type: 'image', order: 0 });
       fetchPortfolioData();
-    } catch { console.error("Error saving media banner"); }
+    } catch (error: any) { 
+      console.error("Error saving media banner", error); 
+    }
   };
 
   const deleteHeroMedia = async (index: number, id?: string) => {
     if (!token || !window.confirm('Remove this background banner?')) return;
-    if (id) {
-      await fetch(`${API_BASE}/admin/hero-media/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-    } else {
-      const updatedMedia = editProfile.heroMedia.filter((_, i) => i !== index);
-      setEditProfile({ ...editProfile, heroMedia: updatedMedia });
-      await fetch(`${API_BASE}/admin/profile`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ ...editProfile, heroMedia: updatedMedia })
-      });
+    try {
+      if (id) {
+        await fetch(`${API_BASE}/admin/hero-media/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+      } else {
+        const updatedMedia = editProfile.heroMedia.filter((_, i) => i !== index);
+        setEditProfile({ ...editProfile, heroMedia: updatedMedia });
+        await fetch(`${API_BASE}/admin/profile`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify({ ...editProfile, heroMedia: updatedMedia })
+        });
+      }
+      fetchPortfolioData();
+    } catch (err: any) {
+      console.error(err);
     }
-    fetchPortfolioData();
   };
 
   const deleteItem = async (endpoint: string, id: string) => {
     if (!token || !window.confirm('Are you sure you want to delete this item?')) return;
-    await fetch(`${API_BASE}/admin/${endpoint}/${id}`, {
-      method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
-    fetchPortfolioData();
-    if (endpoint === 'messages') fetchMessages(token);
+    try {
+      await fetch(`${API_BASE}/admin/${endpoint}/${id}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      fetchPortfolioData();
+      if (endpoint === 'messages') fetchMessages(token);
+    } catch (err: any) {
+      console.error(err);
+    }
   };
 
   // --- VIEW LIMITS FOR INITIAL LANDING PAGE ---
   const displayedSkills = skills.slice(0, 8);
   const displayedProjects = projects.slice(0, 8);
+
+  const adminTabsMap: { id: AdminTabType; label: string; icon: React.ElementType }[] = [
+    { id: 'profile', label: 'Profile & URLs', icon: User },
+    { id: 'media', label: `Hero Media (${editProfile.heroMedia?.length || 0})`, icon: ImageIcon },
+    { id: 'skills', label: 'Skills Manager', icon: Code },
+    { id: 'projects', label: 'Projects & Links', icon: LayoutGrid },
+    { id: 'education', label: 'Education & Certs', icon: Briefcase },
+    { id: 'messages', label: `Messages (${messages?.length || 0})`, icon: MessageSquare }
+  ];
 
   return (
     <div className={`min-h-screen font-sans transition-colors duration-300 selection:bg-cyan-500 selection:text-black relative overflow-x-hidden ${bgMain}`}>
@@ -1005,20 +1045,13 @@ useEffect(() => {
                 <div className="w-full md:w-64 bg-slate-900/90 border-b md:border-b-0 md:border-r border-slate-800 p-3 shrink-0 flex md:flex-col gap-1 overflow-x-auto">
                   <div className="hidden md:block text-[10px] font-bold text-slate-500 uppercase px-3 py-2 tracking-wider">Navigation Menu</div>
                   
-                  {[
-                    { id: 'profile', label: 'Profile & URLs', icon: User },
-                    { id: 'media', label: `Hero Media (${editProfile.heroMedia?.length || 0})`, icon: ImageIcon },
-                    { id: 'skills', label: 'Skills Manager', icon: Code },
-                    { id: 'projects', label: 'Projects & Links', icon: LayoutGrid },
-                    { id: 'education', label: 'Education & Certs', icon: Briefcase },
-                    { id: 'messages', label: `Messages (${messages?.length || 0})`, icon: MessageSquare }
-                  ].map((tab) => {
+                  {adminTabsMap.map((tab) => {
                     const Icon = tab.icon;
                     return (
                       <button 
                         key={tab.id}
                         onClick={() => {
-                          setAdminTab(tab.id as any);
+                          setAdminTab(tab.id);
                           setEditingSkill(null);
                           setEditingProject(null);
                           setEditingEdu(null);
@@ -1184,7 +1217,7 @@ useEffect(() => {
                           <input type="text" placeholder="Documentation URL" value={editingProject ? editingProject.docsUrl || '' : newProject.docsUrl} onChange={(e) => editingProject ? setEditingProject({...editingProject, docsUrl: e.target.value}) : setNewProject({...newProject, docsUrl: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white" />
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
-                          <input type="text" placeholder="Technologies (Comma separated)" value={editingProject ? (Array.isArray(editingProject.technologies) ? editingProject.technologies.join(', ') : editingProject.technologies) : newProject.technologies} onChange={(e) => editingProject ? setEditingProject({...editingProject, technologies: e.target.value as any}) : setNewProject({...newProject, technologies: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white sm:col-span-2" />
+                          <input type="text" placeholder="Technologies (Comma separated)" value={editingProject ? (Array.isArray(editingProject.technologies) ? editingProject.technologies.join(', ') : editingProject.technologies) : newProject.technologies} onChange={(e) => editingProject ? setEditingProject({...editingProject, technologies: e.target.value as unknown as string[]}) : setNewProject({...newProject, technologies: e.target.value})} className="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-white sm:col-span-2" />
                           <div className="flex items-center gap-4">
                             <label className="text-xs text-slate-300 flex items-center gap-1.5 font-semibold">
                               <input type="checkbox" checked={editingProject ? editingProject.featured : newProject.featured} onChange={(e) => editingProject ? setEditingProject({...editingProject, featured: e.target.checked}) : setNewProject({...newProject, featured: e.target.checked})} className="rounded border-slate-800" /> Featured
