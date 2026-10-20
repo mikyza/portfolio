@@ -5,7 +5,7 @@ import {
   GraduationCap, Award, ExternalLink, Lock, LogOut, Plus, Trash2, X, 
   ShieldAlert, Sun, Moon, Download, Mail, Send, 
   LayoutGrid, User, Code, Briefcase, MessageSquare, Globe, ChevronRight, 
-  ArrowLeft, CheckCircle2, AlertCircle, Pencil, Image as ImageIcon, Film
+  ArrowLeft, CheckCircle2, AlertCircle, Pencil, Menu, Image as ImageIcon, Film
 } from 'lucide-react';
 
 // --- INLINE BRAND SVG ICONS (Guarantees zero build errors) ---
@@ -102,9 +102,9 @@ export default function PortfolioApp() {
     name: 'Michael',
     profession: 'Full-Stack Software Developer, UI/UX Designer, Database Architect',
     about: 'I am a dedicated Full-Stack Software Engineer and UI/UX Designer specializing in building scalable web applications across modern JavaScript/TypeScript ecosystems (React, Next.js, Node.js).',
-    profilePicUrl: 'https://scontent.fmba5-2.fna.fbcdn.net/v/t39.30808-6/758573429_1030662136273766_6383217400256263432_n.jpg?stp=dst-jpg_tt6&cstp=mx688x842&ctp=s688x842&_nc_cat=106&ccb=1-7&_nc_sid=833d8c&_nc_eui2=AeHLPtV56bqiBHrNvYukZTI-UGCC65w_v5ZQYILrnD-_liESSLmliklGTT42ur94X7I7lrFbYSX_4-JeVUJ4K16K&_nc_ohc=5LZW-94hUsUQ7kNvwF19uA2&_nc_oc=AdrsqOcxdtjtJQ4oIUpkDwcNtfX40Ix956YpW_zP9qb1ZP1cHYlHmSh5_ejf3LHv1MU&_nc_zt=23&_nc_ht=scontent.fmba5-2.fna&_nc_gid=JyqzTWPPMB-S9YvqPkItww&_nc_ss=7b2a8&oh=00_AQGyKyubkqZhBikSaVwNWUV-0hlz2nqZWlbJNwRlWcRSAQ&oe=6A93BD81',
+    profilePicUrl: '/profile.jpg',
     whatsappNumber: '254746323229',
-    githubUsername: 'michael',
+    githubUsername: 'mikyza',
     githubRepo: 'portfolio',
     linkedinUrl: '',
     twitterUrl: '',
@@ -117,8 +117,8 @@ export default function PortfolioApp() {
     { _id: 'e1', title: 'B.Sc. in Computer Science / Software Engineering', institution: 'University of Technology', year: '2021 - Present', description: 'Specialized in Software Architecture, Distributed Systems, Database Management Systems, and Algorithm Design.', type: 'Education' }
   ]);
   const [certifications, setCertifications] = useState<Education[]>([
-    { _id: 'c1', title: 'Full-Stack Web Development Professional', institution: 'Accredited Tech Institute', year: '2024', description: 'Advanced training in React, Next.js, Node.js microservices, and Cloud Deployment.', type: 'Certification', certificateUrl: '#' },
-    { _id: 'c2', title: 'Linux Server Administration & DevOps', institution: 'Linux Foundation Training', year: '2023', description: 'Server security, bash scripting, containerization, and network troubleshooting.', type: 'Certification', certificateUrl: '#' }
+    { _id: 'c1', title: 'Full-Stack Web Development Professional', institution: 'Accredited Tech Institute', year: '2024', description: 'Advanced training in React, Next.js, Node.js microservices, and Cloud Deployment.', type: 'Certification', certificateUrl: '' },
+    { _id: 'c2', title: 'Linux Server Administration & DevOps', institution: 'Linux Foundation Training', year: '2023', description: 'Server security, bash scripting, containerization, and network troubleshooting.', type: 'Certification', certificateUrl: '' }
   ]);
   
   // UI & Interaction States
@@ -133,9 +133,9 @@ export default function PortfolioApp() {
   const [displayedProfession, setDisplayedProfession] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [loopNum, setLoopNum] = useState(0);
-  const [typingSpeed, setTypingSpeed] = useState(120);
 
   // Admin Panel States
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [isAdminOpen, setIsAdminOpen] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [loginCreds, setLoginCreds] = useState({ username: '', password: '' });
@@ -226,29 +226,24 @@ export default function PortfolioApp() {
 
   // --- TYPEWRITER EFFECT HOOK ---
   useEffect(() => {
-    const titles = profile.profession ? profile.profession.split(',').map(p => p.trim()) : ['Full-Stack Developer'];
-    const currentTitleIndex = loopNum % titles.length;
-    const fullText = titles[currentTitleIndex];
+    const titles = profile.profession ? profile.profession.split(',').map(p => p.trim()).filter(Boolean) : ['Full-Stack Developer'];
+    const fullText = titles[loopNum % titles.length];
+    let timer: ReturnType<typeof setTimeout> | undefined;
 
-    const handleTyping = () => {
-      setDisplayedProfession(isDeleting 
-        ? fullText.substring(0, displayedProfession.length - 1)
-        : fullText.substring(0, displayedProfession.length + 1)
-      );
-
-      setTypingSpeed(isDeleting ? 40 : 100);
-
-      if (!isDeleting && displayedProfession === fullText) {
-        setTimeout(() => setIsDeleting(true), 2000);
-      } else if (isDeleting && displayedProfession === '') {
-        setIsDeleting(false);
-        setLoopNum(loopNum + 1);
-      }
-    };
-
-    const timer = setTimeout(handleTyping, typingSpeed);
-    return () => clearTimeout(timer);
-  }, [displayedProfession, isDeleting, loopNum, typingSpeed, profile.profession]);
+    if (!isDeleting && displayedProfession === fullText) {
+      timer = setTimeout(() => setIsDeleting(true), 2000);
+    } else if (isDeleting && displayedProfession === '') {
+      setIsDeleting(false);
+      setLoopNum((n) => n + 1);
+    } else {
+      timer = setTimeout(() => {
+        setDisplayedProfession(isDeleting
+          ? fullText.substring(0, displayedProfession.length - 1)
+          : fullText.substring(0, displayedProfession.length + 1));
+      }, isDeleting ? 40 : 100);
+    }
+    return () => { if (timer) clearTimeout(timer); };
+  }, [displayedProfession, isDeleting, loopNum, profile.profession]);
 
   // --- HANDLERS ---
   const handleContactSubmit = async (e: React.FormEvent) => {
@@ -267,7 +262,7 @@ export default function PortfolioApp() {
         setContactStatus({ type: 'error', msg: 'Failed to send message. Please try again.' });
       }
     } catch {
-      setContactStatus({ type: 'error', msg: 'Network error. Make sure backend is running.' });
+      setContactStatus({ type: 'error', msg: 'Couldn't send your message. Please try again, or reach me on WhatsApp.' });
     }
   };
 
@@ -441,7 +436,7 @@ export default function PortfolioApp() {
   const displayedProjects = projects.slice(0, 8);
 
   return (
-    <div className={`min-h-screen font-sans transition-colors duration-300 selection:bg-cyan-500 selection:text-black relative overflow-x-hidden ${bgMain}`}>
+    <div className={`min-h-screen scroll-smooth font-sans transition-colors duration-300 selection:bg-cyan-500 selection:text-black relative overflow-x-hidden ${bgMain}`}>
       
       {/* FLOATING WHATSAPP BUTTON */}
       <a
@@ -481,6 +476,15 @@ export default function PortfolioApp() {
             {isDarkMode ? <Sun size={16} /> : <Moon size={16} />}
           </button>
 
+          <button
+            onClick={() => setMobileNavOpen(!mobileNavOpen)}
+            className={`md:hidden p-2 rounded-full border ${isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-200' : 'bg-slate-100 border-slate-300 text-slate-700'}`}
+            aria-label="Toggle navigation menu"
+            aria-expanded={mobileNavOpen}
+          >
+            {mobileNavOpen ? <X size={16} /> : <Menu size={16} />}
+          </button>
+
           {/* STEALTH HIDDEN ADMIN DOT BUTTON */}
           <button 
             onClick={() => { setIsAdminOpen(true); if(token) fetchMessages(token); }}
@@ -489,6 +493,13 @@ export default function PortfolioApp() {
             aria-label="Admin Control Panel"
           />
         </div>
+        {mobileNavOpen && (
+          <div className={`md:hidden absolute top-full left-0 right-0 border-b px-6 py-4 flex flex-col gap-4 text-sm font-semibold ${isDarkMode ? 'bg-slate-950/95 border-slate-800 text-slate-200' : 'bg-white/95 border-slate-200 text-slate-800'}`}>
+            {[['About', '#about'], ['Skills', '#skills'], ['Projects', '#projects'], ['Education & Certs', '#education'], ['Contact', '#contact']].map(([label, href]) => (
+              <a key={href} href={href} onClick={() => setMobileNavOpen(false)} className="hover:text-cyan-400 transition-colors">{label}</a>
+            ))}
+          </div>
+        )}
       </nav>
 
       {/* HERO SECTION */}
@@ -515,8 +526,8 @@ export default function PortfolioApp() {
 
         <div className="relative z-10 max-w-6xl mx-auto w-full grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           <div className="lg:col-span-7 space-y-6 text-center lg:text-left order-2 lg:order-1">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-400 text-xs font-bold uppercase tracking-widest animate-pulse">
-              <span className="w-2 h-2 rounded-full bg-cyan-400" /> Welcome to My Portfolio
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-400 text-xs font-bold uppercase tracking-widest ">
+              <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse motion-reduce:animate-none" /> Open to projects & full-time roles
             </div>
 
             <h1 className={`text-5xl sm:text-6xl md:text-7xl font-black tracking-tight leading-none ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
@@ -526,7 +537,7 @@ export default function PortfolioApp() {
             <div className="h-12 flex items-center justify-center lg:justify-start">
               <h2 className="text-lg sm:text-2xl md:text-3xl font-extrabold text-cyan-400 tracking-wide font-mono flex items-center">
                 <span>{displayedProfession}</span>
-                <span className="w-0.5 h-7 bg-cyan-400 ml-1 animate-ping inline-block" />
+                <span className="w-0.5 h-7 bg-cyan-400 ml-1 animate-pulse motion-reduce:animate-none inline-block" aria-hidden="true" />
               </h2>
             </div>
 
@@ -601,6 +612,9 @@ export default function PortfolioApp() {
           {displayedSkills.map((skill) => (
             <div 
               key={skill._id}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedSkill(skill); } }}
               onClick={() => setSelectedSkill(skill)}
               className={`group border rounded-2xl p-6 flex flex-col items-center text-center cursor-pointer transition-all duration-300 transform hover:-translate-y-1 ${bgCard} ${bgCardHover}`}
             >
