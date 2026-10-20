@@ -262,7 +262,7 @@ export default function PortfolioApp() {
         setContactStatus({ type: 'error', msg: 'Failed to send message. Please try again.' });
       }
     } catch {
-      setContactStatus({ type: 'error', msg: 'Couldn't send your message. Please try again, or reach me on WhatsApp.' });
+      setContactStatus({ type: 'error', msg: 'Could not send your message. Please try again, or reach me on WhatsApp.' });
     }
   };
 
