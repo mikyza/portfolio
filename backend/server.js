@@ -13,6 +13,7 @@ import bcrypt from 'bcryptjs';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import multer from 'multer';
+import crypto from 'crypto';
 import fs from 'fs';
 import path, { dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -20,7 +21,7 @@ import { fileURLToPath } from 'url';
 dotenv.config();
 
 // ==========================================
-// 0. SYSTEM INITIALIZATION & PATHS
+// 0. CONFIG
 // ==========================================
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -28,310 +29,307 @@ const __dirname = dirname(__filename);
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = process.env.HOSTNAME || 'localhost';
 const port = parseInt(process.env.PORT || '3000', 10);
-const JWT_SECRET = process.env.JWT_SECRET || 'SUPER_SECRET_REAL_ESTATE_KEY_2026';
 const MONGODB_URI = process.env.MONGO_URI || process.env.MONGODB_URI;
 
-console.log('🚀 Initializing Full-Stack Property Rental & Real Estate Backend...');
-console.log('DEBUG: Booting unified property management architecture...');
-
-const nextApp = next({ 
-  dev, 
-  hostname, 
-  port,
-  dir: path.join(__dirname, '../frontend/my-app') 
-});
-const nextHandler = nextApp.getRequestHandler();
-
-// ==========================================
-// 1. OFFLINE UPLOAD CONFIGURATION (MULTER)
-// ==========================================
-const uploadDir = path.join(__dirname, 'public', 'uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-  console.log('DEBUG: Created missing upload directory at', uploadDir);
+// Never ship a guessable fallback secret to production.
+const JWT_SECRET = process.env.JWT_SECRET || (dev ? 'dev-only-secret-change-me' : '');
+if (!JWT_SECRET) {
+  console.error('❌ FATAL: JWT_SECRET must be set in production.');
+  process.exit(1);
 }
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, uploadDir),
-  filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname.replace(/\s+/g, '-'))
+// Comma-separated list, e.g. CORS_ORIGIN=https://myapp.com,https://www.myapp.com
+const ALLOWED_ORIGINS = (process.env.CORS_ORIGIN || '').split(',').map((o) => o.trim()).filter(Boolean);
+const corsOrigin = ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : dev;
+
+const nextApp = next({ dev, hostname, port, dir: path.join(__dirname, '../frontend/my-app') });
+const nextHandler = nextApp.getRequestHandler();
+
+// Express app + HTTP server must exist before routes and Socket.IO use them.
+const expressApp = express();
+const server = createServer(expressApp);
+expressApp.set('trust proxy', 1); // correct req.ip behind Render/Nginx
+
+// ==========================================
+// 1. UPLOADS (images only, size-limited, random names)
+// ==========================================
+const uploadDir = path.join(__dirname, 'public', 'uploads');
+fs.mkdirSync(uploadDir, { recursive: true });
+
+const IMAGE_EXT = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp' };
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => cb(null, uploadDir),
+    filename: (req, file, cb) =>
+      cb(null, `${Date.now()}-${crypto.randomBytes(8).toString('hex')}${IMAGE_EXT[file.mimetype]}`)
+  }),
+  limits: { fileSize: 5 * 1024 * 1024, files: 3 },
+  fileFilter: (req, file, cb) =>
+    IMAGE_EXT[file.mimetype] ? cb(null, true) : cb(new Error('Only JPG, PNG or WebP images are allowed'))
 });
-const upload = multer({ storage });
 
 // ==========================================
-// 2. DATABASE SCHEMAS & MODELS
+// 2. MODELS
 // ==========================================
-import { 
-  User, 
-  Property, 
-  Unit, 
-  Lease,
-  MaintenanceTicket,
-  AdminLog, 
-  SystemConfig
-} from './lib/db.js';
+import { User, Property, Lease, MaintenanceTicket, AdminLog, SystemConfig } from './lib/db.js';
 
 // ==========================================
-// 3. MIDDLEWARES
+// 3. HELPERS & MIDDLEWARE
 // ==========================================
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-  if (!token) {
-    console.log('DEBUG: Auth failed - Missing token');
-    return res.status(401).json({ error: 'Access token missing' });
-  }
+const ROLES = ['tenant', 'landlord', 'admin'];
+const str = (v) => (typeof v === 'string' ? v.trim() : '');
+const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const serverError = (res, label, err) => {
+  console.error(label, err);
+  res.status(500).json({ error: 'Something went wrong. Please try again.' });
+};
 
-  jwt.verify(token, JWT_SECRET, (err, decodedUser) => {
-    if (err) {
-      console.log('DEBUG: Auth failed - Invalid token');
-      return res.status(403).json({ error: 'Token invalid or expired' });
-    }
-    req.user = decodedUser;
-    next();
+// Small in-memory rate limiter (use Redis / express-rate-limit if you scale to many instances).
+const rateLimit = ({ windowMs, max }) => {
+  const hits = new Map();
+  setInterval(() => hits.clear(), windowMs).unref();
+  return (req, res, nextFn) => {
+    const n = (hits.get(req.ip) || 0) + 1;
+    hits.set(req.ip, n);
+    if (n > max) return res.status(429).json({ error: 'Too many attempts. Try again later.' });
+    nextFn();
+  };
+};
+const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 20 });
+
+const authenticateToken = (req, res, nextFn) => {
+  const token = req.headers['authorization']?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Access token missing' });
+  jwt.verify(token, JWT_SECRET, (err, decoded) => {
+    if (err) return res.status(403).json({ error: 'Token invalid or expired' });
+    req.user = decoded;
+    nextFn();
   });
 };
 
-const requireRole = (roles) => async (req, res, next) => {
+// Always re-checks the database, so role changes and disabled accounts apply immediately.
+const requireRole = (roles) => async (req, res, nextFn) => {
   try {
-    const userInstance = await User.findById(req.user.id);
-    if (!userInstance || !roles.includes(userInstance.role)) {
-      console.log(`DEBUG: Clearance rejected for user ID: ${req.user.id}. Required roles: ${roles.join(',')}`);
-      return res.status(403).json({ error: 'Access denied. Insufficient privileges.' });
+    const user = await User.findById(req.user.id);
+    if (!user || !user.isActive || !roles.includes(user.role)) {
+      return res.status(403).json({ error: 'Access denied.' });
     }
-    if (!userInstance.isActive) return res.status(403).json({ error: 'Account disabled' });
-    req.dbUser = userInstance;
-    next();
+    req.dbUser = user;
+    nextFn();
   } catch (error) {
-    console.error('DEBUG: Role evaluation crash:', error);
-    res.status(500).json({ error: 'Internal role evaluation crash' });
+    serverError(res, 'Role check failed:', error);
   }
 };
 
+const requireAnyUser = requireRole(ROLES);
 const requireAdmin = requireRole(['admin']);
 const requireLandlordOrAdmin = requireRole(['landlord', 'admin']);
 
+const signToken = (user) => jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
+
 // ==========================================
-// 4. NEXT.JS PREPARATION & APP INITIALIZATION
+// 4. START
 // ==========================================
 nextApp.prepare().then(async () => {
-  console.log('📦 Next.js frontend rendering engine compiled.');
-
-  // MONGODB CONNECTION
-// MONGODB CONNECTION
   if (!MONGODB_URI) {
-    console.error('❌ FATAL: MONGODB_URI is not defined in environment variables.');
+    console.error('❌ FATAL: MONGODB_URI is not defined.');
     process.exit(1);
   }
 
-  console.log('⏳ Attempting to connect to MongoDB Atlas cluster...');
-  try {
-    await mongoose.connect(MONGODB_URI, {
-      serverSelectionTimeoutMS: 15000, // Timeout after 15s instead of hanging
-      socketTimeoutMS: 45000,
-      maxPoolSize: 10,
-      tls: true, // Explicitly enforce TLS handshake required by Atlas
-    });
-    console.log(`🍃 MongoDB Connected Successfully to Cluster!`);
-  } catch (connErr) {
-    console.error('❌ MongoDB Connection Detailed Error:', connErr);
-    throw connErr;
-  }
-  // Global Real Estate Settings Seeding
+  await mongoose.connect(MONGODB_URI, {
+    serverSelectionTimeoutMS: 15000,
+    socketTimeoutMS: 45000,
+    maxPoolSize: 10,
+    tls: true
+  });
+  console.log('🍃 MongoDB connected');
+
   await SystemConfig.findOneAndUpdate(
-    { key: 'platform_fee_percentage' }, 
+    { key: 'platform_fee_percentage' },
     { $setOnInsert: { key: 'platform_fee_percentage', value: 5 } },
-    { upsert: true, new: true }
+    { upsert: true }
   );
-  
   await SystemConfig.findOneAndUpdate(
     { key: 'maintenance_mode' },
     { $setOnInsert: { key: 'maintenance_mode', value: false } },
-    { upsert: true, new: true }
+    { upsert: true }
   );
 
-  expressApp.use(cors());
+  expressApp.disable('x-powered-by');
+  expressApp.use(cors({ origin: corsOrigin }));
 
-  expressApp.use((req, res, next) => {
-    if (req.path.startsWith('/api/auth/')) {
-      return next();
-    }
-    express.json()(req, res, (err) => {
-      if (err) return next(err);
-      express.urlencoded({ extended: true })(req, res, next);
-    });
+  // Security headers (swap for `helmet` if you can add the dependency)
+  expressApp.use((req, res, nextFn) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    nextFn();
   });
 
-  const io = new SocketIOServer(server, { 
-    cors: { origin: '*', methods: ['GET', 'POST', 'PUT', 'DELETE'] } 
+  // NextAuth (/api/auth/*) parses its own body.
+  const jsonParser = express.json({ limit: '100kb' });
+  const urlParser = express.urlencoded({ extended: true, limit: '100kb' });
+  expressApp.use((req, res, nextFn) => {
+    if (req.path.startsWith('/api/auth/')) return nextFn();
+    jsonParser(req, res, (err) => (err ? nextFn(err) : urlParser(req, res, nextFn)));
   });
-  
-  expressApp.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
+
+  expressApp.use('/uploads', express.static(uploadDir));
+
+  const io = new SocketIOServer(server, { cors: { origin: corsOrigin, methods: ['GET', 'POST'] } });
 
   io.on('connection', (socket) => {
     socket.on('joinSystemChannel', (token) => {
-      jwt.verify(token, JWT_SECRET, async (err, decoded) => {
-        if (!err) {
-          if (decoded.role === 'admin') {
-            socket.join('admin-dashboard-room');
-            console.log(`DEBUG: Admin joined real-time channel. Node ID: ${decoded.id}`);
-          }
-          socket.join(`user-room-${decoded.id}`);
+      jwt.verify(String(token), JWT_SECRET, async (err, decoded) => {
+        if (err) return;
+        try {
+          // Trust the database, not the role baked into the token.
+          const user = await User.findById(decoded.id);
+          if (!user || !user.isActive) return;
+          if (user.role === 'admin') socket.join('admin-dashboard-room');
+          socket.join(`user-room-${user.id}`);
+        } catch (e) {
+          console.error('Socket join failed:', e);
         }
       });
     });
   });
 
-  // ==========================================
-  // 5. AUTHENTICATION (Mobile Number + Password)
-  // ==========================================
-  expressApp.post('/api/user/signup', async (req, res) => {
+  // ---------- AUTH ----------
+  expressApp.post('/api/user/signup', authLimiter, async (req, res) => {
     try {
-      const { phoneNumber, password, fullName, role } = req.body;
-      
-      if (!phoneNumber || !password || !fullName) {
-        return res.status(400).json({ error: 'All parameters required' });
-      }
-      
-      const existingUser = await User.findOne({ phoneNumber });
-      if (existingUser) {
-        return res.status(409).json({ error: 'Mobile registration payload matches active record' });
+      const phoneNumber = str(req.body.phoneNumber);
+      const fullName = str(req.body.fullName);
+      const password = typeof req.body.password === 'string' ? req.body.password : '';
+
+      if (!phoneNumber || !fullName || !password) return res.status(400).json({ error: 'Phone number, full name and password are required' });
+      if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
+
+      if (await User.findOne({ phoneNumber })) {
+        return res.status(409).json({ error: 'An account with this phone number already exists' });
       }
 
-      const hashedPassword = await bcrypt.hash(password, 12);
-      const assignedRole = role === 'landlord' ? 'landlord' : 'tenant';
+      // Self-service roles are limited to tenant/landlord; admins are created manually.
+      const role = req.body.role === 'landlord' ? 'landlord' : 'tenant';
+      const user = await User.create({ phoneNumber, fullName, role, password: await bcrypt.hash(password, 12) });
 
-      const newUser = await User.create({ phoneNumber, password: hashedPassword, fullName, role: assignedRole });
-      
-      const token = jwt.sign({ id: newUser.id, role: newUser.role }, JWT_SECRET, { expiresIn: '7d' });
-      res.status(201).json({ token, user: { id: newUser.id, fullName: newUser.fullName, role: newUser.role } });
-    } catch (err) { 
-      console.error("Signup Error:", err);
-      res.status(500).json({ error: err.message }); 
+      res.status(201).json({ token: signToken(user), user: { id: user.id, fullName: user.fullName, role: user.role } });
+    } catch (err) {
+      serverError(res, 'Signup error:', err);
     }
   });
 
-  expressApp.post('/api/user/login', async (req, res) => {
+  expressApp.post('/api/user/login', authLimiter, async (req, res) => {
     try {
-      const { phoneNumber, password } = req.body;
-      
-      const user = await User.findOne({ phoneNumber });
-      if (!user || !user.isActive) return res.status(401).json({ error: 'Invalid record entry or disabled account' });
+      const phoneNumber = str(req.body.phoneNumber);
+      const password = typeof req.body.password === 'string' ? req.body.password : '';
 
-      const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch) return res.status(401).json({ error: 'Invalid record entry' });
+      const user = phoneNumber && password ? await User.findOne({ phoneNumber }) : null;
+      const ok = user && user.isActive && (await bcrypt.compare(password, user.password));
+      if (!ok) return res.status(401).json({ error: 'Invalid phone number or password' });
 
-      const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
-      res.json({ token, user: { id: user.id, fullName: user.fullName, role: user.role, phoneNumber: user.phoneNumber } });
-    } catch (err) { 
-      console.error("Login Error:", err);
-      res.status(500).json({ error: err.message }); 
+      res.json({ token: signToken(user), user: { id: user.id, fullName: user.fullName, role: user.role, phoneNumber: user.phoneNumber } });
+    } catch (err) {
+      serverError(res, 'Login error:', err);
     }
   });
 
-  // ==========================================
-  // 6. PUBLIC MARKETPLACE APIs
-  // ==========================================
+  // ---------- PUBLIC MARKETPLACE ----------
   expressApp.get('/api/properties/marketplace', async (req, res) => {
     try {
-      const { propertyType, minPrice, maxPrice, county, search } = req.query;
-      let whereCondition = { status: 'approved' };
+      const where = { status: 'approved' };
+      const propertyType = str(req.query.propertyType);
+      const county = str(req.query.county);
+      const search = str(req.query.search).slice(0, 80);
 
-      if (propertyType) whereCondition.propertyType = propertyType;
-      if (county) whereCondition.county = county;
-      
+      if (propertyType) where.propertyType = propertyType;
+      if (county) where.county = county;
       if (search) {
-        whereCondition.$or = [
-          { title: { $regex: search, $options: 'i' } },
-          { city: { $regex: search, $options: 'i' } },
-          { address: { $regex: search, $options: 'i' } }
-        ];
+        const rx = { $regex: escapeRegex(search), $options: 'i' };
+        where.$or = [{ title: rx }, { city: rx }, { address: rx }];
       }
 
-      const properties = await Property.find(whereCondition).populate({
-        path: 'Units',
-        match: { isOccupied: false }
-      });
-
+      const properties = await Property.find(where).populate({ path: 'Units', match: { isOccupied: false } });
       res.json(properties);
-    } catch (err) { res.status(500).json({ error: err.message }); }
-  });
-
-  // ==========================================
-  // 7. LANDLORD & PROPERTY MANAGER APIs
-  // ==========================================
-  expressApp.post('/api/landlord/properties', authenticateToken, requireLandlordOrAdmin, async (req, res) => {
-    try {
-      const payload = {
-        ...req.body,
-        landlordId: req.user.id,
-        status: req.user.role === 'admin' ? 'approved' : 'pending_approval'
-      };
-
-      const newProperty = await Property.create(payload);
-      
-      io.to('admin-dashboard-room').emit('newPropertyAlert', newProperty);
-
-      res.status(201).json(newProperty);
-    } catch (err) { res.status(500).json({ error: err.message }); }
-  });
-
-  // ==========================================
-  // 8. TENANT APIs (Leases, Rent & Maintenance)
-  // ==========================================
-  expressApp.get('/api/tenant/my-leases', authenticateToken, async (req, res) => {
-    try {
-      const leases = await Lease.find({ tenantId: req.user.id })
-        .populate({
-          path: 'Unit',
-          populate: { path: 'Property' }
-        })
-        .sort({ createdAt: -1 });
-      res.json(leases);
-    } catch (err) { 
-      res.status(500).json({ error: err.message }); 
+    } catch (err) {
+      serverError(res, 'Marketplace error:', err);
     }
   });
 
-  expressApp.post('/api/tenant/maintenance', authenticateToken, upload.array('images', 3), async (req, res) => {
+  // ---------- LANDLORD ----------
+  expressApp.post('/api/landlord/properties', authenticateToken, requireLandlordOrAdmin, async (req, res) => {
+    try {
+      // Strip fields a client must never control.
+      const { _id, id, status, landlordId, createdAt, updatedAt, ...safeFields } = req.body;
+      const newProperty = await Property.create({
+        ...safeFields,
+        landlordId: req.dbUser.id,
+        status: req.dbUser.role === 'admin' ? 'approved' : 'pending_approval'
+      });
+
+      io.to('admin-dashboard-room').emit('newPropertyAlert', newProperty);
+      res.status(201).json(newProperty);
+    } catch (err) {
+      serverError(res, 'Create property error:', err);
+    }
+  });
+
+  // ---------- TENANT ----------
+  expressApp.get('/api/tenant/my-leases', authenticateToken, requireAnyUser, async (req, res) => {
+    try {
+      const leases = await Lease.find({ tenantId: req.dbUser.id })
+        .populate({ path: 'Unit', populate: { path: 'Property' } })
+        .sort({ createdAt: -1 });
+      res.json(leases);
+    } catch (err) {
+      serverError(res, 'Leases error:', err);
+    }
+  });
+
+  expressApp.post('/api/tenant/maintenance', authenticateToken, requireAnyUser, upload.array('images', 3), async (req, res) => {
     try {
       const { propertyId, unitId, title, description, category, priority } = req.body;
-      const imageUrls = req.files ? req.files.map(f => `/uploads/${f.filename}`) : [];
+      if (!str(title) || !str(description)) return res.status(400).json({ error: 'Title and description are required' });
 
       const ticket = await MaintenanceTicket.create({
-        tenantId: req.user.id,
+        tenantId: req.dbUser.id,
         propertyId,
         unitId,
-        title,
-        description,
+        title: str(title),
+        description: str(description),
         category,
         priority,
-        images: imageUrls,
+        images: (req.files || []).map((f) => `/uploads/${f.filename}`),
         status: 'open'
       });
 
       io.to('admin-dashboard-room').emit('newMaintenanceTicket', ticket);
       res.status(201).json(ticket);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) {
+      serverError(res, 'Maintenance error:', err);
+    }
   });
 
-  // ==========================================
-  // 9. SUPER ADMIN ENGINE
-  // ==========================================
+  // ---------- ADMIN ----------
   expressApp.post('/api/admin/upload', authenticateToken, requireAdmin, upload.single('image'), (req, res) => {
-    try {
-      if (!req.file) return res.status(400).json({ error: 'No file buffered to stream' });
-      const fileUrl = `/uploads/${req.file.filename}`;
-      res.json({ url: fileUrl });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    res.json({ url: `/uploads/${req.file.filename}` });
   });
 
   expressApp.put('/api/admin/properties/:id/status', authenticateToken, requireAdmin, async (req, res) => {
     try {
+      const allowed = Property.schema.path('status')?.enumValues;
+      const newStatus = str(req.body.status);
+      if (!newStatus || (allowed?.length && !allowed.includes(newStatus))) {
+        return res.status(400).json({ error: `Invalid status${allowed?.length ? `. Allowed: ${allowed.join(', ')}` : ''}` });
+      }
+
       const property = await Property.findById(req.params.id);
       if (!property) return res.status(404).json({ error: 'Property not found' });
-      
+
       const oldStatus = property.status;
-      property.status = req.body.status;
+      property.status = newStatus;
       await property.save();
 
       await AdminLog.create({
@@ -339,79 +337,82 @@ nextApp.prepare().then(async () => {
         action: 'UPDATE_PROPERTY_STATUS',
         targetType: 'property',
         targetId: property.id,
-        changes: { oldStatus, newStatus: req.body.status },
+        changes: { oldStatus, newStatus },
         ipAddress: req.ip
       });
 
       io.to(`user-room-${property.landlordId}`).emit('propertyStatusUpdated', property);
       res.json(property);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+    } catch (err) {
+      serverError(res, 'Property status error:', err);
+    }
   });
 
   expressApp.get('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
     try {
-      const systemRegisteredUsers = await User.find().select('-password');
-      res.json(systemRegisteredUsers);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+      res.json(await User.find().select('-password'));
+    } catch (err) {
+      serverError(res, 'List users error:', err);
+    }
   });
 
   expressApp.put('/api/admin/users/:id/modify', authenticateToken, requireAdmin, async (req, res) => {
     try {
       const { fullName, role, isActive } = req.body;
-      const targetUserRecord = await User.findById(req.params.id);
-      if (!targetUserRecord) return res.status(404).json({ error: 'Invalid document' });
+      const target = await User.findById(req.params.id);
+      if (!target) return res.status(404).json({ error: 'User not found' });
 
-      if (fullName !== undefined) targetUserRecord.fullName = fullName;
-      if (role !== undefined) targetUserRecord.role = role;
-      if (isActive !== undefined) targetUserRecord.isActive = isActive;
+      if (role !== undefined && !ROLES.includes(role)) return res.status(400).json({ error: 'Invalid role' });
+      if (target.id === req.dbUser.id && (role !== undefined && role !== 'admin' || isActive === false)) {
+        return res.status(400).json({ error: 'You cannot demote or disable your own admin account' });
+      }
 
-      await targetUserRecord.save();
-      
+      if (fullName !== undefined) target.fullName = str(fullName);
+      if (role !== undefined) target.role = role;
+      if (isActive !== undefined) target.isActive = Boolean(isActive);
+      await target.save();
+
       await AdminLog.create({
         adminId: req.dbUser.id,
         action: 'MODIFY_USER_CLEARANCE',
         targetType: 'user',
-        targetId: targetUserRecord.id.toString(),
-        changes: req.body,
+        targetId: target.id.toString(),
+        changes: { fullName, role, isActive },
         ipAddress: req.ip
       });
 
-      res.json({ message: 'User updated', record: targetUserRecord });
-    } catch (err) { res.status(500).json({ error: err.message }); }
+      const { password, ...record } = target.toObject();
+      res.json({ message: 'User updated', record });
+    } catch (err) {
+      serverError(res, 'Modify user error:', err);
+    }
   });
 
   expressApp.get('/api/admin/logs', authenticateToken, requireAdmin, async (req, res) => {
     try {
-      const logs = await AdminLog.find()
-        .populate('Admin', 'fullName')
-        .sort({ createdAt: -1 })
-        .limit(150);
-      res.json(logs);
-    } catch (err) { res.status(500).json({ error: err.message }); }
+      res.json(await AdminLog.find().populate('Admin', 'fullName').sort({ createdAt: -1 }).limit(150));
+    } catch (err) {
+      serverError(res, 'Logs error:', err);
+    }
   });
 
-  // ==========================================
-  // 10. INTERCEPT NEXT.JS ROUTING PARSING OVERRIDES
-  // ==========================================
-  expressApp.all(/.*/, (req, res) => {
-    if (req.path.startsWith('/api/auth/')) {
-      return nextHandler(req, res, parse(req.url, true));
+  // ---------- ERRORS (upload rejections, bad JSON) ----------
+  expressApp.use('/api', (err, req, res, nextFn) => {
+    if (err instanceof multer.MulterError || err?.message?.startsWith('Only JPG')) {
+      return res.status(400).json({ error: err.message });
     }
-    const parsedUrl = parse(req.url, true);
-    nextHandler(req, res, parsedUrl);
+    if (err?.type === 'entity.parse.failed') return res.status(400).json({ error: 'Invalid JSON body' });
+    console.error('Unhandled API error:', err);
+    res.status(500).json({ error: 'Something went wrong. Please try again.' });
   });
+
+  // ---------- NEXT.JS ----------
+  expressApp.all(/.*/, (req, res) => nextHandler(req, res, parse(req.url, true)));
 
   server.listen(port, () => {
-    console.log(`\n=============================================================`);
-    console.log(`🏢 Real Estate & Property Management Engine Is Live`);
-    console.log(`📡 Serving API Requests & WebSockets at http://${hostname}:${port}`);
-    console.log(`=============================================================\n`);
+    console.log(`🏢 Property Management Engine live at http://${hostname}:${port}`);
   });
-
-}).catch((fatalInitCrashErr) => {
-  console.error('❌ Root System Initialization Core Failure encountered:', fatalInitCrashErr);
+}).catch((err) => {
+  console.error('❌ Startup failure:', err);
   process.exit(1);
-
 });
-
-
