@@ -1,0 +1,489 @@
+/* Global Styles */
+body {
+    font-family: 'Poppins', sans-serif;
+    margin: 0;
+    padding: 0;
+    background: linear-gradient(120deg, #1e3c72, #2a5298, #0f2027);
+    background-size: 300% 300%;
+    animation: backgroundShift 12s infinite alternate;
+    color: white;
+    scroll-behavior: smooth;
+    width: 100%;
+}
+
+/* Header */
+header {
+    width: 100%;
+    padding: 20px;
+    text-align: center;
+    font-size: 24px;
+    font-weight: bold;
+    color: white;
+    background: linear-gradient(45deg, rgb(105, 3, 3), rgb(0, 0, 2), rgb(2, 65, 2), rgb(0, 0, 0));
+    background-size: 300% 300%;
+    transition: background 0.7s ease-in-out;
+    height: 600px;
+}
+
+header:hover {
+    animation: moveColors 5s infinite linear;
+}
+
+@keyframes moveColors {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+
+header h1 {
+    font-size: 3rem;
+    font-weight: bold;
+    color: transparent;
+    background-image: linear-gradient(to right, #ffffff 50%, #ff0101 50%);
+    background-clip: text;
+    animation: dropAndResize 3s ease-in-out forwards;
+    transform: translateY(-100px); /* Start above the screen */
+   
+}
+p{
+   
+    
+
+}
+h3{
+    border-bottom: 2px dotted rgb(255, 255, 255); /* You can change the color and thickness as needed */
+  display: inline;
+    font-size: larger;
+}
+.circle {
+    width: 450px;
+    height: 350px;
+    background-image: url("images/profile.jpeg");
+    background-repeat: no-repeat;
+    background-size: cover;
+    border-top-left-radius: 170px;
+    border-bottom-right-radius: 190px;
+    margin-top: -30px;
+    box-shadow: 0px 0px 20px 10px rgba(4, 226, 34, 0.5); /* Blue shadow */
+    transition: transform 0.3s ease-in-out;
+}
+.circle:hover {
+    transform: scale(1.2); /* Scales the div to 120% of its size */
+  }
+/* Navigation Menu */
+.navbar {
+    background-color: #222;
+    padding: 15px 0;
+    box-shadow: 0 4px 10px rgba(255, 255, 255, 0.1);
+    
+}
+
+.nav-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+}
+
+.nav-list li {
+    display: inline;
+}
+
+.nav-list a {
+    text-decoration: none;
+    color: white;
+    font-size: 16px;
+    padding: 8px 12px;
+    border-radius: 5px;
+    transition: 0.3s;
+}
+
+.nav-list a:hover {
+    background-color: #608d66;
+}
+
+.sentence-box {
+    text-align: center;
+    font-size: 24px;
+    font-family: Arial, sans-serif;
+    font-weight: bold;
+    padding: 20px;
+    white-space: nowrap;
+    margin-top: -200px;
+    margin-left: 250px;
+  }
+  
+  .sentence {
+    opacity: 0;
+    animation: showSentence 3s infinite;
+    font-size: xx-large;
+    text-shadow: #FFD700;
+  }
+  
+  #about{
+    background: linear-gradient(black,rgb(12, 56, 12),rgb(0, 0, 0),black);
+    width: 103%;
+    height: 600px;
+    font-size: 28px;
+    text-align: center;
+    font-weight: bolder;
+   
+  }
+  #about:hover{
+    background-image: url("images/code.jpg");
+    opacity: 50%;
+    
+  }
+  h2{
+    text-align: center;
+    font-size: xx-large;
+    margin-top: 3px;
+  }
+  #Education{
+    background-image: url("images/image.png");
+    width: 103%;
+    height: 600px;
+    background-repeat: no-repeat;
+    background-size: 100%;
+  }
+  .edu-divi{
+    width: 700px;
+    height: 520px;
+    background-color: black;
+    opacity: 50%;
+    border-radius: 30px;
+    margin-left: 25%;
+    margin-top: 2px;
+    font-size: 32px;
+    text-align: center;
+    font-weight: bolder;
+  }
+  .cv{
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: #007bff;
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+    font-weight: bold;
+    transition: background-color 0.3s;
+    margin-left: 45%;
+    margin-top: 10px;
+}
+
+.cv:hover{
+    background-color: #0056b3;
+}
+#interests{
+   
+    background-size: cover;
+    background-position: center;
+    animation: slide 15s infinite;
+    width: 103%;
+    height: 600px;
+    background-repeat: no-repeat;
+    background-size: 100%;
+    background-size: cover;
+    background-position: center;
+    animation: changeBackground 15s infinite;
+    color: rgb(0, 255, 0);
+    
+}
+@keyframes changeBackground {
+    0% { background-image: url('images/coding.jpeg'); }
+    33.33% { background-image: url('images/coding2.webp'); }
+    66.66% { background-image: url('images/whitehat.webp'); }
+    100% { background-image: url('images/network.jpg'); }
+}
+.interest{
+
+    width: 900px;
+    height: 520px;
+    background-color: black;
+    opacity: 60%;
+    border-radius: 30px;
+    margin-left: 18%;
+    margin-top: 2px;
+    font-size: 32px;
+    text-align: center;
+    font-weight: bolder;
+   
+}
+
+.skills-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    height: 600px;
+    margin-left: 190px;
+    margin-top: 250px;
+}
+
+.skill {
+    width: 140px;
+    height: 160px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    color: white;
+    font-size: 18px;
+    font-weight: bold;
+    border-radius: 10px;
+    transition: transform 0.3s, opacity 0.3s;
+    background-size: cover;
+    background-position: center;
+}
+
+.skill:hover {
+    transform: scale(1.1);
+    opacity: 0.8;
+}
+.CyberSecurity{
+    width: 140px;
+    height: 160px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    color: white;
+    font-size: 18px;
+    font-weight: bold;
+    border-radius: 10px;
+    transition: transform 0.3s, opacity 0.3s;
+    background-size: cover;
+    background-position: center;
+    transform: scale(1.1);
+    opacity: 0.8;
+    
+}
+.container {
+    display: flex;
+    width: 90%;
+    height: 75vh;
+    gap: 10px;
+}
+
+.big-div {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+    font-size: 24px;
+    font-weight: bold;
+    border-radius: 10px;
+    background-size: cover;
+    background-position: center;
+    transition: transform 0.3s, opacity 0.3s;
+}
+
+/* Hover effect */
+.big-div:hover {
+    transform: scale(1.05);
+    opacity: 0.8;
+}
+#contact{
+    background-color: black;
+    width: 103%;
+    height: 600px;
+}
+.contact-container {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+    width: 350px;
+    text-align: center;
+}
+
+h2 {
+    margin-bottom: 15px;
+    color: #333;
+}
+
+form {
+    display: flex;
+    flex-direction: column;
+}
+
+label {
+    text-align: left;
+    font-weight: bold;
+    margin-top: 10px;
+    color: #555;
+    margin-left: 30%;
+}
+
+input, textarea {
+    width: 40%;
+    padding: 10px;
+    margin-top: 5px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    font-size: 16px;
+    margin-left: 30%;
+}
+
+textarea {
+    height: 100px;
+    resize: none;
+}
+
+button {
+    margin-top: 15px;
+    padding: 10px;
+    background: #007BFF;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: 0.3s;
+    width: 15%;
+    margin-left: 42%;
+}
+
+button:hover {
+    background: #0056b3;
+}
+.cont{
+    background-color: #333;
+   width: 103%;
+   height: 170px;
+}
+.social-container {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    padding: 20px;
+}
+
+.social-link {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    font-size: 24px;
+    color: white;
+    text-decoration: none;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.social-link:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.whatsapp {
+    background-image: url("images/whatsapp.7f3687b9-847d-4f86-bb5c-c73259e2b38e");
+}
+
+.facebook {
+    background-image: url("images/facebook.webp");
+}
+
+.github {
+    background-image: url("images/github.png");
+}
+
+.whatsapp:hover {
+    background-color: #0fdd65;
+}
+
+.facebook:hover {
+    background-color: #222;
+}
+
+.github:hover {
+    background-color: #222;
+}
+
+
+/* Different Backgrounds */
+.div1 { background-image: url('images/basic.png'); }
+.div2 { background-image: url('images/cyber1.png'); }
+.div3 { background-image: url('images/plp.webp'); }
+
+/* Different Backgrounds */
+.html { background-image: url('images/html.jpg'); }
+.css { background-image: url('images/css.png'); }
+.js { background-image: url('images/js.jpg'); }
+.CyberSecurity { background-image: url('images/network.jpg'); }
+.mysql { background-image: url('images/my.png'); }
+.design { background-image: url('images/graphic.jpeg'); }
+  @keyframes showSentence {
+    0%   { opacity: 0; }
+    10%  { opacity: 1; }
+    30%  { opacity: 1; }
+    40%  { opacity: 0; }
+    100% { opacity: 0; }
+  }
+
+/* Drop and Resize Animation */
+@keyframes dropAndResize {
+    0% {
+        transform: translateY(-100px);
+        font-size: 3rem;
+    }
+    50% {
+        transform: translateY(0);
+        font-size: 4.5rem; /* Increase font size */
+    }
+    100% {
+        transform: translateY(0);
+        font-size: 4.5rem;
+    }
+}
+
+/* Navigation Bar */
+
+
+/* Certifications */
+.certifications-container {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.cert-box {
+    background: rgba(255, 255, 255, 0.2);
+    padding: 15px 20px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: 0.4s;
+    box-shadow: 0px 4px 10px rgba(255, 255, 255, 0.2);
+}
+
+.cert-box:hover {
+    background: #FFD700;
+    color: black;
+    transform: translateY(-5px);
+    box-shadow: 0px 10px 20px rgba(255, 215, 0, 0.7);
+}
+
+/* Contact */
+#contact p {
+    font-size: 1.2rem;
+    margin-top: 10px;
+}
+
+/* Background Animation */
+@keyframes backgroundShift {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 100% 50%; }
+}
+
+/* Fade-in effect for sections */
+@media (max-width: 768px) {
+    nav ul {
+        flex-direction: column;
+        gap: 10px;
+    }
+}
