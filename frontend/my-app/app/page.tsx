@@ -893,7 +893,7 @@ export default function PortfolioApp() {
                   value={contactForm.senderName} 
                   onChange={(e) => setContactForm({...contactForm, senderName: e.target.value})}
                   className={`w-full rounded-lg px-4 py-3 text-sm focus:outline-none transition-colors border ${inputBg}`}
-                  placeholder="John Doe" 
+                  placeholder="mike" 
                 />
               </div>
               <div>
