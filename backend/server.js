@@ -10,6 +10,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 
 dotenv.config();
 
@@ -17,10 +18,16 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 // Checks for both MONGO_URI and MONGODB_URI from your .env file
 const MONGODB_URI = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://localhost:27017/portfolio_db';
-const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_admin_key_change_in_production';
+let JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  // Never fall back to a public, hard-coded secret. A random one keeps the server safe (admins must sign in again after each restart).
+  JWT_SECRET = crypto.randomBytes(48).toString('hex');
+  console.warn('⚠️ JWT_SECRET is not set. Using a temporary random secret. Set JWT_SECRET in your host settings so admin logins survive restarts.');
+}
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '').split(',').map((o) => o.trim()).filter(Boolean);
 
 // Middleware
-app.use(cors());
+app.use(cors(ALLOWED_ORIGINS.length ? { origin: ALLOWED_ORIGINS } : undefined)); // set ALLOWED_ORIGINS=https://your-site.com to restrict
 app.use(express.json({ limit: '5mb' }));
 
 /* ==========================================
@@ -47,6 +54,12 @@ const profileSchema = new mongoose.Schema({
     type: String, 
     default: '' // Stores the destination URL for your CV download
   },
+  profilePicUrl: { type: String, default: '' },
+  whatsappNumber: { type: String, default: '254746323229' },
+  githubUsername: { type: String, default: 'mikyza' },
+  githubRepo: { type: String, default: 'portfolio' },
+  linkedinUrl: { type: String, default: '' },
+  twitterUrl: { type: String, default: '' },
   heroMedia: [
     {
       url: { type: String, required: true },
@@ -62,7 +75,7 @@ const Profile = mongoose.model('Profile', profileSchema);
 const skillSchema = new mongoose.Schema({
   title: { type: String, required: true },
   category: { type: String, default: 'Web Development' },
-  imageUrl: { type: String, required: true },
+  imageUrl: { type: String, default: '' },
   description: { type: String, required: true },
   level: { type: String, default: 'Advanced' },
   order: { type: Number, default: 0 }
@@ -73,9 +86,11 @@ const Skill = mongoose.model('Skill', skillSchema);
 const projectSchema = new mongoose.Schema({
   title: { type: String, required: true },
   description: { type: String, required: true },
-  imageUrl: { type: String, required: true },
-  projectUrl: { type: String, required: true },
+  imageUrl: { type: String, default: '' },
+  projectUrl: { type: String, default: '' },
   repoUrl: { type: String },
+  demoUrl: { type: String, default: '' },
+  docsUrl: { type: String, default: '' },
   technologies: [{ type: String }],
   featured: { type: Boolean, default: true },
   order: { type: Number, default: 0 }
@@ -120,7 +135,7 @@ const authenticateAdmin = (req, res, next) => {
     req.admin = decoded;
     next();
   } catch (err) {
-    res.status(400).json({ error: 'Invalid token.' });
+    res.status(401).json({ error: err.name === 'TokenExpiredError' ? 'Your login expired. Please sign in again.' : 'Invalid token. Please sign in again.' });
   }
 };
 
@@ -138,8 +153,10 @@ app.get('/api/portfolio', async (req, res) => {
     const education = await Education.find({ type: 'Education' });
     const certifications = await Education.find({ type: 'Certification' });
 
+    const profileOut = profile && profile.toObject ? profile.toObject() : profile;
+    if (profileOut && !profileOut.profilePicUrl && profileOut.profilePic && String(profileOut.profilePic).startsWith('data:')) profileOut.profilePicUrl = profileOut.profilePic;
     res.json({
-      profile,
+      profile: profileOut,
       skills,
       projects,
       education,
@@ -181,7 +198,17 @@ app.post('/api/contact', async (req, res) => {
    4. ADMIN AUTHENTICATION ROUTES
 ========================================== */
 
-app.post('/api/auth/login', async (req, res) => {
+const loginAttempts = new Map();
+const loginLimiter = (req, res, next) => {
+  const key = req.ip || 'x'; const now = Date.now();
+  const rec = (loginAttempts.get(key) || []).filter((t) => now - t < 15 * 60 * 1000);
+  if (rec.length >= 10) return res.status(429).json({ error: 'Too many login attempts. Try again in 15 minutes.' });
+  rec.push(now); loginAttempts.set(key, rec);
+  next();
+};
+app.get('/api/health', (req, res) => res.json({ ok: true, db: mongoose.connection.readyState === 1 }));
+
+app.post('/api/auth/login', loginLimiter, async (req, res) => {
   try {
     const { username, password } = req.body;
     const admin = await Admin.findOne({ username });
@@ -210,25 +237,31 @@ app.get('/api/admin/profile', authenticateAdmin, async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+const stripMeta = (body) => { const { _id, __v, createdAt, ...rest } = body || {}; return rest; };
+
 app.put('/api/admin/profile', authenticateAdmin, async (req, res) => {
   try {
-    const updateFields = { ...req.body, updatedAt: Date.now() };
+    const updateFields = { ...stripMeta(req.body), updatedAt: Date.now() };
 
-    // Support profilePicUrl sent from frontend along with other naming conventions
-    if (req.body.profilePicUrl || req.body.profileImage || req.body.avatarUrl || req.body.imageUrl) {
-      const pic = req.body.profilePicUrl || req.body.profileImage || req.body.avatarUrl || req.body.imageUrl;
-      updateFields.profilePic = pic;
-      updateFields.profilePicUrl = pic;
-    }
+    // Accept several names for the picture and keep both stored fields in sync
+    const pic = req.body.profilePicUrl || req.body.profileImage || req.body.avatarUrl || req.body.imageUrl;
+    if (pic) { updateFields.profilePic = pic; updateFields.profilePicUrl = pic; }
+    // Accept several names for the CV link
+    if (req.body.resumeUrl || req.body.cv) updateFields.cvUrl = req.body.resumeUrl || req.body.cv;
+
+    const updatedProfile = await Profile.findOneAndUpdate({}, { $set: updateFields }, { new: true, upsert: true, runValidators: true });
+    res.json(updatedProfile);
+  } catch (err) {
+    res.status(400).json({ error: 'Failed to update profile', details: err.message });
+  }
+});
+
 // --- Hero Media Control ---
 app.post('/api/admin/hero-media', authenticateAdmin, async (req, res) => {
   try {
     const { url, type, order } = req.body;
     let profile = await Profile.findOne();
-    if (!profile) {
-      profile = new Profile();
-    }
-    
+    if (!profile) profile = new Profile();
     profile.heroMedia.push({ url, type, order: order || profile.heroMedia.length + 1 });
     await profile.save();
     res.status(201).json(profile.heroMedia);
@@ -241,27 +274,11 @@ app.delete('/api/admin/hero-media/:id', authenticateAdmin, async (req, res) => {
   try {
     const profile = await Profile.findOne();
     if (!profile) return res.status(404).json({ error: 'Profile not found' });
-    
-    profile.heroMedia = profile.heroMedia.filter(m => m._id.toString() !== req.params.id);
+    profile.heroMedia = profile.heroMedia.filter((m) => m._id.toString() !== req.params.id);
     await profile.save();
     res.json({ message: 'Hero media deleted', heroMedia: profile.heroMedia });
   } catch (err) {
     res.status(400).json({ error: 'Failed to delete hero media', details: err.message });
-  }
-});
-    // Support multiple naming conventions for CV update
-    if (req.body.resumeUrl || req.body.cv) {
-      updateFields.cvUrl = req.body.resumeUrl || req.body.cv;
-    }
-
-    const updatedProfile = await Profile.findOneAndUpdate(
-      {},
-      { $set: updateFields },
-      { new: true, upsert: true }
-    );
-    res.json(updatedProfile);
-  } catch (err) {
-    res.status(400).json({ error: 'Failed to update profile', details: err.message });
   }
 });
 
@@ -291,7 +308,8 @@ app.post('/api/admin/skills', authenticateAdmin, async (req, res) => {
 
 app.put('/api/admin/skills/:id', authenticateAdmin, async (req, res) => {
   try {
-    const skill = await Skill.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true, runValidators: true });
+    const skill = await Skill.findByIdAndUpdate(req.params.id, { $set: stripMeta(req.body) }, { new: true, runValidators: true });
+    if (!skill) return res.status(404).json({ error: 'Skill not found' });
     res.json(skill);
   } catch (err) { res.status(400).json({ error: err.message }); }
 });
@@ -329,7 +347,8 @@ app.post('/api/admin/projects', authenticateAdmin, async (req, res) => {
 
 app.put('/api/admin/projects/:id', authenticateAdmin, async (req, res) => {
   try {
-    const project = await Project.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true, runValidators: true });
+    const project = await Project.findByIdAndUpdate(req.params.id, { $set: stripMeta(req.body) }, { new: true, runValidators: true });
+    if (!project) return res.status(404).json({ error: 'Project not found' });
     res.json(project);
   } catch (err) { res.status(400).json({ error: err.message }); }
 });
@@ -367,7 +386,8 @@ app.post('/api/admin/education', authenticateAdmin, async (req, res) => {
 
 app.put('/api/admin/education/:id', authenticateAdmin, async (req, res) => {
   try {
-    const edu = await Education.findByIdAndUpdate(req.params.id, { $set: req.body }, { new: true, runValidators: true });
+    const edu = await Education.findByIdAndUpdate(req.params.id, { $set: stripMeta(req.body) }, { new: true, runValidators: true });
+    if (!edu) return res.status(404).json({ error: 'Record not found' });
     res.json(edu);
   } catch (err) { res.status(400).json({ error: err.message }); }
 });
@@ -410,6 +430,14 @@ app.delete('/api/admin/messages/:id', authenticateAdmin, async (req, res) => {
 });
 
 
+// Errors such as 'payload too large' or malformed JSON come back as JSON instead of an HTML page
+app.use((err, req, res, next) => {
+  if (err && err.type === 'entity.too.large') return res.status(413).json({ error: 'That upload is too large. Use a smaller picture.' });
+  if (err && err.type === 'entity.parse.failed') return res.status(400).json({ error: 'The request was not valid JSON.' });
+  console.error('Unhandled error:', err && err.message);
+  res.status(500).json({ error: 'Server error' });
+});
+
 /* ==========================================
    6. CLOUD-OPTIMIZED DATABASE CONNECTION & SEEDING
 ========================================== */
@@ -438,12 +466,16 @@ const initializeDatabase = async () => {
       maxPoolSize: 10                  // Maintain stable cloud connection pool
     });
 
-    // 1. Seed Default Admin if none exists
+    // 1. Create the first admin from environment variables (only when no admin exists)
     const adminExists = await Admin.findOne();
     if (!adminExists) {
-      const hashedPassword = await bcrypt.hash('0746323229', 10);
-      await Admin.create({ username: 'admin', password: hashedPassword });
-      console.log('✨ Default admin created -> Username: [admin] | Password: [0746323229]');
+      if (process.env.ADMIN_USERNAME && process.env.ADMIN_PASSWORD) {
+        const hashedPassword = await bcrypt.hash(process.env.ADMIN_PASSWORD, 12);
+        await Admin.create({ username: process.env.ADMIN_USERNAME, password: hashedPassword });
+        console.log(`✨ Admin account created: ${process.env.ADMIN_USERNAME}`);
+      } else {
+        console.warn('⚠️ No admin exists yet. Set ADMIN_USERNAME and ADMIN_PASSWORD in your host settings and restart to create one.');
+      }
     }
 
     // 2. Seed Default Profile with profilePic, cvUrl, 3 images + 1 video if none exists
@@ -476,5 +508,4 @@ initializeDatabase();
 // Start Server bound to 0.0.0.0 so external devices on your Wi-Fi can connect
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Portfolio Backend running locally on http://localhost:${PORT}`);
-  console.log(`🌐 Accessible on your LAN via http://192.168.100.13:${PORT}`);
 });
