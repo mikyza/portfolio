@@ -903,7 +903,7 @@ export default function PortfolioApp() {
                   value={contactForm.email} 
                   onChange={(e) => setContactForm({...contactForm, email: e.target.value})}
                   className={`w-full rounded-lg px-4 py-3 text-sm focus:outline-none transition-colors border ${inputBg}`}
-                  placeholder="john@example.com" 
+                  placeholder="mike@example.com" 
                 />
               </div>
             </div>
